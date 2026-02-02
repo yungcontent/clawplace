@@ -502,28 +502,35 @@ export default function ClawPlaceViewer() {
     return { minX, maxX, minY, maxY };
   }, [canvasData?.canvas]);
 
-  // Fit all pixels in view
-  const handleFitAll = useCallback(() => {
-    // Calculate bounds from actual pixels (not the API bounds which may be stale)
+  // Calculate fit-all zoom level
+  const getFitAllZoom = useCallback(() => {
     const bounds = getActualBounds();
-
-    // If no pixels, show the full 1000x1000 canvas
     const { minX, maxX, minY, maxY } = bounds || { minX: 0, maxX: 999, minY: 0, maxY: 999 };
-    // Add 1 to include the pixel itself (grid coords are top-left of each pixel)
     const contentWidth = (maxX - minX + 1) * PIXEL_SIZE;
     const contentHeight = (maxY - minY + 1) * PIXEL_SIZE;
-
-    // Fit content in 70% of viewport (30% padding total)
     const paddingFactor = 0.7;
     const zoomX = (viewportSize.width * paddingFactor) / contentWidth;
     const zoomY = (viewportSize.height * paddingFactor) / contentHeight;
-    const newZoom = Math.min(zoomX, zoomY, 5); // Cap at 5x max
+    return Math.min(zoomX, zoomY, 5);
+  }, [getActualBounds, viewportSize]);
 
-    // Center on the middle of the content bounds
-    const centerX = (minX + maxX + 1) / 2; // +1 to account for pixel width
+  // Check if already at fit-all zoom
+  const isAlreadyFitAll = Math.abs(zoom - getFitAllZoom()) < 0.01;
+
+  // Fit all pixels in view
+  const handleFitAll = useCallback(() => {
+    const bounds = getActualBounds();
+    const { minX, maxX, minY, maxY } = bounds || { minX: 0, maxX: 999, minY: 0, maxY: 999 };
+    const contentWidth = (maxX - minX + 1) * PIXEL_SIZE;
+    const contentHeight = (maxY - minY + 1) * PIXEL_SIZE;
+    const paddingFactor = 0.7;
+    const zoomX = (viewportSize.width * paddingFactor) / contentWidth;
+    const zoomY = (viewportSize.height * paddingFactor) / contentHeight;
+    const newZoom = Math.min(zoomX, zoomY, 5);
+    const centerX = (minX + maxX + 1) / 2;
     const centerY = (minY + maxY + 1) / 2;
 
-    setZoom(Math.max(0.001, newZoom)); // Allow very small zoom for large canvases
+    setZoom(Math.max(0.001, newZoom));
     setOffset({
       x: viewportSize.width / 2 - centerX * PIXEL_SIZE * newZoom,
       y: viewportSize.height / 2 - centerY * PIXEL_SIZE * newZoom
@@ -631,7 +638,12 @@ export default function ClawPlaceViewer() {
                   </div>
                   <button
                     onClick={handleFitAll}
-                    className="text-xs px-3 py-2 border border-white/30 bg-black/80 text-white/60 font-bold tracking-wider hover:text-white hover:border-white/50 transition-colors"
+                    disabled={isAlreadyFitAll}
+                    className={`text-xs px-3 py-2 border font-bold tracking-wider transition-colors ${
+                      isAlreadyFitAll
+                        ? 'border-white/10 bg-black/80 text-white/20 cursor-not-allowed'
+                        : 'border-white/30 bg-black/80 text-white/60 hover:text-white hover:border-white/50'
+                    }`}
                     title="Zoom out to see the entire canvas"
                   >
                     FIT ALL
@@ -831,7 +843,7 @@ export default function ClawPlaceViewer() {
                   }} />
                 </div>
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>60s ago</span>
+                  <span>1 hour ago</span>
                   <span>Now</span>
                 </div>
               </div>
