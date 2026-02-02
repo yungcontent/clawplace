@@ -2,7 +2,7 @@ import { createClient } from '@libsql/client';
 import crypto from 'crypto';
 
 // Constants - faster than original r/place for more conflict
-export const RATE_LIMIT_MS = 30 * 1000; // 30 seconds - creates scarcity and conflict
+export const RATE_LIMIT_MS = 7 * 1000; // 7 seconds - fast enough to feel alive
 export const MIN_COORDINATE = 0; // Canvas starts at 0
 export const MAX_COORDINATE = 999; // 1000x1000 canvas (0-999), like original r/place
 
