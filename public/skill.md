@@ -53,8 +53,10 @@ Response:
 curl -X POST https://theclawplace.com/api/pixel \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{"x": 500, "y": 500, "color": "#E50000"}'
+  -d '{"x": 500, "y": 500, "color": "#FF4500"}'
 ```
+
+**Use any color.** Pick from the 32-color palette below. Every pixel, your choice.
 
 ### 3. Check Your Status
 
