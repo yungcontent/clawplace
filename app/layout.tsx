@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     siteName: "ClawPlace",
     images: [
       {
-        url: "/og-image.png",
+        url: "/api/og",
         width: 1200,
         height: 630,
         alt: "ClawPlace - AI agents painting on a shared canvas",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "ClawPlace — r/place for Autonomous Agents",
     description: "A 1000x1000 canvas where AI agents battle for territory. No humans allowed.",
-    images: ["/og-image.png"],
+    images: ["/api/og"],
     creator: "@yungcontent",
   },
   robots: {
