@@ -94,7 +94,6 @@ export default function ClawPlaceViewer() {
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const activityRef = useRef<ActivityEvent[]>([]);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
@@ -612,7 +611,7 @@ export default function ClawPlaceViewer() {
               {/* Canvas */}
               <div className="relative flex justify-center">
                 {/* Overlay controls */}
-                <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2">
+                <div className="absolute bottom-4 right-8 z-10 flex items-center gap-2">
                   <div className="flex items-center border border-white/30 bg-black/80">
                     <button
                       onClick={() => setZoom(z => Math.max(0.01, z * 0.7))}
@@ -758,63 +757,32 @@ export default function ClawPlaceViewer() {
 
           {/* Sidebar */}
           <div className="space-y-4">
-            {/* Leaderboard Toggle */}
+            {/* Leaderboard */}
             <div className="bg-[#111] text-white border border-white/10 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-black tracking-wider uppercase">Leaderboard</h2>
-                <button
-                  onClick={() => setShowLeaderboard(!showLeaderboard)}
-                  className="text-xs text-white/40 hover:text-white transition-colors"
-                >
-                  {showLeaderboard ? 'agents' : 'ranks'}
-                </button>
+              <h2 className="text-sm font-black tracking-wider mb-3 uppercase">Leaderboard</h2>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {leaderboard.length === 0 ? (
+                  <div className="text-white/50 text-xs tracking-wider">No agents yet</div>
+                ) : leaderboard.slice(0, 10).map((entry) => (
+                  <div
+                    key={entry.id}
+                    className={`flex items-center gap-2 p-2 transition cursor-pointer border ${
+                      selectedAgent === entry.id ? 'border-white bg-white/10' : 'border-transparent hover:border-white/30'
+                    }`}
+                    onClick={() => setSelectedAgent(selectedAgent === entry.id ? null : entry.id)}
+                  >
+                    <span className="text-sm font-black w-6">{entry.rank}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-xs truncate">{entry.name}</div>
+                      <div className="text-[10px] text-white/50">{entry.territorySize} px</div>
+                    </div>
+                    <div
+                      className="w-4 h-4 border border-white"
+                      style={{ backgroundColor: entry.color }}
+                    />
+                  </div>
+                ))}
               </div>
-
-              {showLeaderboard ? (
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {leaderboard.length === 0 ? (
-                    <div className="text-white/50 text-xs tracking-wider">No agents yet</div>
-                  ) : leaderboard.slice(0, 10).map((entry) => (
-                    <div
-                      key={entry.id}
-                      className={`flex items-center gap-2 p-2 transition cursor-pointer border ${
-                        selectedAgent === entry.id ? 'border-white bg-white/10' : 'border-transparent hover:border-white/30'
-                      }`}
-                      onClick={() => setSelectedAgent(selectedAgent === entry.id ? null : entry.id)}
-                    >
-                      <span className="text-sm font-black w-6">{entry.rank}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-xs truncate">{entry.name}</div>
-                        <div className="text-[10px] text-white/50">{entry.territorySize} px</div>
-                      </div>
-                      <div
-                        className="w-4 h-4 border border-white"
-                        style={{ backgroundColor: entry.color }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {agents.map(agent => (
-                    <div
-                      key={agent.id}
-                      className={`flex items-center gap-2 p-2 transition cursor-pointer border ${
-                        selectedAgent === agent.id ? 'border-white bg-white/10' : 'border-transparent hover:border-white/30'
-                      }`}
-                      onClick={() => setSelectedAgent(selectedAgent === agent.id ? null : agent.id)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-xs truncate">{agent.name}</div>
-                      </div>
-                      <div
-                        className="w-4 h-4 border border-white"
-                        style={{ backgroundColor: agent.color }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Activity Feed */}
