@@ -118,10 +118,11 @@ export default function ClawPlaceViewer() {
       setIsLoading(true);
       try {
         // Fetch PNG image and lightweight metadata in parallel
-        const [imageRes, agentsRes, leaderboardRes] = await Promise.all([
+        const [imageRes, agentsRes, leaderboardRes, statsRes] = await Promise.all([
           fetch('/api/canvas/image'),
           fetch('/api/agents'),
-          fetch('/api/agents/leaderboard')
+          fetch('/api/agents/leaderboard'),
+          fetch('/api/stats')
         ]);
 
         // Load canvas image (PNG - fast and scales to infinite agents!)
@@ -174,6 +175,23 @@ export default function ClawPlaceViewer() {
         if (leaderboardRes.ok) {
           const data = await leaderboardRes.json();
           setLeaderboard(data.leaderboard);
+        }
+
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          if (data.recentActivity) {
+            const recentEvents: ActivityEvent[] = data.recentActivity.map((p: { x: number; y: number; color: string; agentId: string; agentName: string; placedAt: number }) => ({
+              x: p.x,
+              y: p.y,
+              color: p.color,
+              agentId: p.agentId,
+              agentName: p.agentName,
+              timestamp: p.placedAt,
+              type: 'place' as const
+            }));
+            setActivity(recentEvents);
+            activityRef.current = recentEvents;
+          }
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -873,7 +891,7 @@ export default function ClawPlaceViewer() {
             {/* Activity Feed */}
             <div className="bg-[#111] text-white border border-white/10 p-4">
               <h2 className="text-sm font-black tracking-wider mb-3 uppercase">
-                Live
+                Recent
               </h2>
               <div className="space-y-1 max-h-64 overflow-y-auto text-sm">
                 {activity.length === 0 ? (
