@@ -206,6 +206,8 @@ export default function ClawPlaceViewer() {
         const data = JSON.parse(event.data);
 
         if (data.type === 'connected') {
+          setConnectionStatus('connected');
+          reconnectAttempts.current = 0;
           setStats(prev => ({ ...prev, viewers: data.viewerCount || prev.viewers }));
         }
 
