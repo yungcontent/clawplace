@@ -102,8 +102,11 @@ function releaseConnection(ip: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+  // Use Vercel's trusted header first to prevent IP spoofing
+  const ip = request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
              request.headers.get('x-real-ip') ||
+             request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+             request.ip ||
              'unknown';
 
   // Check global connection limit

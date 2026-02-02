@@ -1,8 +1,8 @@
 import { createClient } from '@libsql/client';
 import crypto from 'crypto';
 
-// Constants - matching original r/place (2017)
-export const RATE_LIMIT_MS = 5 * 60 * 1000; // 5 minutes, like original r/place
+// Constants - faster than original r/place for more conflict
+export const RATE_LIMIT_MS = 30 * 1000; // 30 seconds - creates scarcity and conflict
 export const MIN_COORDINATE = 0; // Canvas starts at 0
 export const MAX_COORDINATE = 999; // 1000x1000 canvas (0-999), like original r/place
 
@@ -102,6 +102,20 @@ async function initDb() {
   await db.execute('CREATE INDEX IF NOT EXISTS idx_pixels_time ON pixels(placed_at)');
   await db.execute('CREATE INDEX IF NOT EXISTS idx_agents_token ON agents(token)');
 
+  // Pixel history for activity tracking
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS pixel_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      x INTEGER NOT NULL,
+      y INTEGER NOT NULL,
+      color TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      placed_at INTEGER NOT NULL
+    )
+  `);
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_history_coords ON pixel_history(x, y)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_history_time ON pixel_history(placed_at)');
+
   initialized = true;
 }
 
@@ -179,8 +193,14 @@ export const dbOps = {
 
   async placePixel(x: number, y: number, color: string, agent_id: string, placed_at: number) {
     await initDb();
+    // Update current state
     await db.execute({
       sql: 'INSERT INTO pixels (x, y, color, agent_id, placed_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(x, y) DO UPDATE SET color = excluded.color, agent_id = excluded.agent_id, placed_at = excluded.placed_at',
+      args: [x, y, color, agent_id, placed_at]
+    });
+    // Record in history for activity tracking
+    await db.execute({
+      sql: 'INSERT INTO pixel_history (x, y, color, agent_id, placed_at) VALUES (?, ?, ?, ?, ?)',
       args: [x, y, color, agent_id, placed_at]
     });
   },
@@ -200,6 +220,29 @@ export const dbOps = {
       agent_id: row.agent_id as string,
       placed_at: row.placed_at as number
     };
+  },
+
+  async getPixelNeighborhood(x: number, y: number): Promise<{ colors: Record<string, number>; agents: Record<string, number> }> {
+    await initDb();
+    // Get 8 surrounding pixels
+    const result = await db.execute({
+      sql: `SELECT color, agent_id FROM pixels
+            WHERE x >= ? AND x <= ? AND y >= ? AND y <= ?
+            AND NOT (x = ? AND y = ?)`,
+      args: [x - 1, x + 1, y - 1, y + 1, x, y]
+    });
+
+    const colors: Record<string, number> = {};
+    const agents: Record<string, number> = {};
+
+    for (const row of result.rows) {
+      const color = row.color as string;
+      const agent = row.agent_id as string;
+      colors[color] = (colors[color] || 0) + 1;
+      agents[agent] = (agents[agent] || 0) + 1;
+    }
+
+    return { colors, agents };
   },
 
   async getAllPixels(): Promise<Pixel[]> {
@@ -296,6 +339,87 @@ export const dbOps = {
     }));
   },
 
+  async getPixelActivity(x: number, y: number, since: number): Promise<{ changes: number; lastChange: number | null; agents: string[] }> {
+    await initDb();
+    const result = await db.execute({
+      sql: `SELECT COUNT(*) as changes, MAX(placed_at) as lastChange, GROUP_CONCAT(DISTINCT agent_id) as agents
+            FROM pixel_history WHERE x = ? AND y = ? AND placed_at > ?`,
+      args: [x, y, since]
+    });
+    const row = result.rows[0];
+    const agentStr = row.agents as string | null;
+    return {
+      changes: row.changes as number,
+      lastChange: row.lastChange as number | null,
+      agents: agentStr ? agentStr.split(',') : []
+    };
+  },
+
+  async getActivityHeatmap(since: number): Promise<{ x: number; y: number; changes: number }[]> {
+    await initDb();
+    const result = await db.execute({
+      sql: `SELECT x, y, COUNT(*) as changes
+            FROM pixel_history
+            WHERE placed_at > ?
+            GROUP BY x, y
+            ORDER BY changes DESC
+            LIMIT 1000`,
+      args: [since]
+    });
+    return result.rows.map(row => ({
+      x: row.x as number,
+      y: row.y as number,
+      changes: row.changes as number
+    }));
+  },
+
+  async getContestdZones(since: number, minChanges: number): Promise<{ x: number; y: number; changes: number; uniqueAgents: number }[]> {
+    await initDb();
+    const result = await db.execute({
+      sql: `SELECT
+              CAST(x / 10 AS INTEGER) * 10 as x,
+              CAST(y / 10 AS INTEGER) * 10 as y,
+              COUNT(*) as changes,
+              COUNT(DISTINCT agent_id) as uniqueAgents
+            FROM pixel_history
+            WHERE placed_at > ?
+            GROUP BY CAST(x / 10 AS INTEGER), CAST(y / 10 AS INTEGER)
+            HAVING changes >= ?
+            ORDER BY changes DESC
+            LIMIT 50`,
+      args: [since, minChanges]
+    });
+    return result.rows.map(row => ({
+      x: row.x as number,
+      y: row.y as number,
+      changes: row.changes as number,
+      uniqueAgents: row.uniqueAgents as number
+    }));
+  },
+
+  async getStableZones(since: number): Promise<{ x: number; y: number }[]> {
+    await initDb();
+    // Find 10x10 regions with pixels but no recent changes
+    const result = await db.execute({
+      sql: `SELECT DISTINCT
+              CAST(p.x / 10 AS INTEGER) * 10 as x,
+              CAST(p.y / 10 AS INTEGER) * 10 as y
+            FROM pixels p
+            WHERE NOT EXISTS (
+              SELECT 1 FROM pixel_history h
+              WHERE CAST(h.x / 10 AS INTEGER) = CAST(p.x / 10 AS INTEGER)
+                AND CAST(h.y / 10 AS INTEGER) = CAST(p.y / 10 AS INTEGER)
+                AND h.placed_at > ?
+            )
+            LIMIT 50`,
+      args: [since]
+    });
+    return result.rows.map(row => ({
+      x: row.x as number,
+      y: row.y as number
+    }));
+  },
+
   async getTrendingRegions(since: number, limit: number): Promise<{ x: number; y: number; count: number }[]> {
     await initDb();
     const result = await db.execute({
@@ -322,15 +446,33 @@ export const dbOps = {
   async atomicPlacePixel(agentId: string, rateLimitMs: number): Promise<Agent | null> {
     await initDb();
     const now = Date.now();
+    const cutoff = now - rateLimitMs;
 
-    // Check and update in transaction
-    const agent = await this.getAgentById(agentId);
-    if (!agent) return null;
-    if (now - agent.last_pixel_at < rateLimitMs) return null;
+    // Atomic check-and-update: only update if last_pixel_at is old enough
+    // This prevents race conditions by making the check and update a single operation
+    const result = await db.execute({
+      sql: `UPDATE agents
+            SET last_pixel_at = ?
+            WHERE id = ? AND last_pixel_at < ?
+            RETURNING *`,
+      args: [now, agentId, cutoff]
+    });
 
-    await this.updateLastPixel(agentId, now);
-    agent.last_pixel_at = now;
-    return agent;
+    if (result.rows.length === 0) {
+      // Either agent doesn't exist or rate limit not passed
+      return null;
+    }
+
+    const row = result.rows[0];
+    return {
+      id: row.id as string,
+      name: row.name as string,
+      token: row.token as string,
+      personality: row.personality as Personality,
+      color: row.color as string,
+      created_at: row.created_at as number,
+      last_pixel_at: now
+    };
   }
 };
 

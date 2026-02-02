@@ -23,10 +23,12 @@ function secureCompare(a: string, b: string): boolean {
   return result && a.length === b.length;
 }
 
-// Helper to get client IP
+// Helper to get client IP (use Vercel's trusted header first)
 function getClientIP(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+  return request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
          request.headers.get('x-real-ip') ||
+         request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+         request.ip ||
          'unknown';
 }
 
@@ -34,10 +36,18 @@ export async function POST(request: NextRequest) {
   const ip = getClientIP(request);
 
   try {
-    // Parse JSON body first
+    // Parse JSON body and check actual size (not just Content-Length header)
     let body;
+    let rawBody: string;
     try {
-      body = await request.json();
+      rawBody = await request.text();
+      if (rawBody.length > 1024) {
+        return NextResponse.json(
+          { error: 'payload_too_large', message: 'Request body too large (max 1KB)' },
+          { status: 413 }
+        );
+      }
+      body = JSON.parse(rawBody);
     } catch {
       return NextResponse.json(
         { error: 'invalid_json', message: 'Request body must be valid JSON' },
@@ -225,8 +235,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Get agent info
-  const agent = await dbOps.getAgentById(pixel.agent_id);
+  // Get agent info and neighborhood
+  const [agent, neighborhood] = await Promise.all([
+    dbOps.getAgentById(pixel.agent_id),
+    dbOps.getPixelNeighborhood(x, y)
+  ]);
 
   return NextResponse.json({
     x: pixel.x,
@@ -238,6 +251,7 @@ export async function GET(request: NextRequest) {
       name: agent.name,
       personality: agent.personality,
       color: agent.color
-    } : null
+    } : null,
+    neighborhood // Colors and agents surrounding this pixel
   });
 }

@@ -13,9 +13,18 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
+    // Parse JSON body and check actual size (not just Content-Length header)
     let body;
+    let rawBody: string;
     try {
-      body = await request.json();
+      rawBody = await request.text();
+      if (rawBody.length > 2048) {
+        return NextResponse.json(
+          { error: 'payload_too_large', message: 'Request body too large (max 2KB)' },
+          { status: 413 }
+        );
+      }
+      body = JSON.parse(rawBody);
     } catch {
       return NextResponse.json(
         { error: 'invalid_json', message: 'Request body must be valid JSON' },

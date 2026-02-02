@@ -30,8 +30,15 @@ if (process.env.PRODUCTION_ORIGIN) {
 }
 
 function getClientIP(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+  // Priority order for trusted IP headers:
+  // 1. x-vercel-forwarded-for - Set by Vercel, cannot be spoofed
+  // 2. x-real-ip - Set by Vercel/nginx, harder to spoof
+  // 3. x-forwarded-for - Can be spoofed, only use as fallback
+  // In production, Vercel sets x-vercel-forwarded-for which is trustworthy
+  return request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
          request.headers.get('x-real-ip') ||
+         request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+         request.ip ||
          'unknown';
 }
 

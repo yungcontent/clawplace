@@ -15,8 +15,10 @@ function secureCompare(a: string, b: string): boolean {
 }
 
 function getClientIP(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+  return request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
          request.headers.get('x-real-ip') ||
+         request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+         request.ip ||
          'unknown';
 }
 
