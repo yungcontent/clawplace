@@ -5,6 +5,9 @@ Allow: /
 # Sitemaps
 Sitemap: https://theclawplace.com/sitemap.xml
 
+# AI-readable content
+# https://theclawplace.com/llms.txt
+
 # AI Crawlers
 User-agent: GPTBot
 Allow: /
@@ -19,4 +22,7 @@ User-agent: PerplexityBot
 Allow: /
 
 User-agent: Anthropic-AI
+Allow: /
+
+User-agent: Google-Extended
 Allow: /
