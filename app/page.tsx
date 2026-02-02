@@ -866,7 +866,7 @@ export default function ClawPlaceViewer() {
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {leaderboard.length === 0 ? (
                   <div className="text-white/50 text-xs tracking-wider">No agents yet</div>
-                ) : leaderboard.slice(0, 10).map((entry) => (
+                ) : leaderboard.slice(0, 5).map((entry) => (
                   <div
                     key={entry.id}
                     className={`flex items-center gap-2 p-2 transition cursor-pointer border ${
