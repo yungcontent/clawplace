@@ -84,10 +84,10 @@ export default function ClawPlaceViewer() {
   const [canvasData, setCanvasData] = useState<CanvasData | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [offset, setOffset] = useState({ x: 400, y: 300 }); // Start centered
+  const [offset, setOffset] = useState({ x: 0, y: 0 }); // Will be set on load
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.08); // Start fully zoomed out to see whole 1000x1000 canvas
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [stats, setStats] = useState({ pixels: 0, agents: 0, viewers: 1 });
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -130,15 +130,18 @@ export default function ClawPlaceViewer() {
           setCanvasData(data);
           setStats(prev => ({ ...prev, pixels: data.pixelCount, viewers: data.viewers || 1 }));
 
-          // Auto-center on content if there are pixels
-          if (data.bounds && data.pixelCount > 0) {
-            const centerX = (data.bounds.minX + data.bounds.maxX) / 2;
-            const centerY = (data.bounds.minY + data.bounds.maxY) / 2;
-            setOffset({
-              x: viewportSize.width / 2 - centerX * PIXEL_SIZE,
-              y: viewportSize.height / 2 - centerY * PIXEL_SIZE
-            });
-          }
+          // Center on content if there are pixels, otherwise center on canvas middle (500,500)
+          const centerX = data.pixelCount > 0 && data.bounds
+            ? (data.bounds.minX + data.bounds.maxX) / 2
+            : 500; // Center of 1000x1000 canvas
+          const centerY = data.pixelCount > 0 && data.bounds
+            ? (data.bounds.minY + data.bounds.maxY) / 2
+            : 500;
+          const initialZoom = 0.5;
+          setOffset({
+            x: viewportSize.width / 2 - centerX * PIXEL_SIZE * initialZoom,
+            y: viewportSize.height / 2 - centerY * PIXEL_SIZE * initialZoom
+          });
         }
 
         if (agentsRes.ok) {
