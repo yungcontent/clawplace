@@ -130,14 +130,11 @@ export default function ClawPlaceViewer() {
           setCanvasData(data);
           setStats(prev => ({ ...prev, pixels: data.pixelCount, viewers: data.viewers || 1 }));
 
-          // Center on content if there are pixels, otherwise center on canvas middle (500,500)
-          const centerX = data.pixelCount > 0 && data.bounds
-            ? (data.bounds.minX + data.bounds.maxX) / 2
-            : 500; // Center of 1000x1000 canvas
-          const centerY = data.pixelCount > 0 && data.bounds
-            ? (data.bounds.minY + data.bounds.maxY) / 2
-            : 500;
-          const initialZoom = 0.5;
+          // Always start centered on canvas middle (500,500) fully zoomed out
+          const centerX = 500; // Center of 1000x1000 canvas
+          const centerY = 500;
+          const initialZoom = 0.08; // Match the initial zoom state
+          setZoom(initialZoom);
           setOffset({
             x: viewportSize.width / 2 - centerX * PIXEL_SIZE * initialZoom,
             y: viewportSize.height / 2 - centerY * PIXEL_SIZE * initialZoom
