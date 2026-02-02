@@ -13,7 +13,7 @@ const CONNECTION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
 
 // Per-IP connection tracking (local to this module)
 const connectionsPerIP = new Map<string, number>();
-const MAX_CONNECTIONS_PER_IP = 5;
+const MAX_CONNECTIONS_PER_IP = 50; // Higher limit for serverless (connections don't clean up reliably)
 
 // Get current viewer count
 export function getViewerCount(): number {
