@@ -118,11 +118,10 @@ export default function ClawPlaceViewer() {
       setIsLoading(true);
       try {
         // Fetch PNG image and lightweight metadata in parallel
-        const [imageRes, agentsRes, leaderboardRes, statsRes] = await Promise.all([
+        const [imageRes, agentsRes, leaderboardRes] = await Promise.all([
           fetch('/api/canvas/image'),
           fetch('/api/agents'),
-          fetch('/api/agents/leaderboard'),
-          fetch('/api/stats')
+          fetch('/api/agents/leaderboard')
         ]);
 
         // Load canvas image (PNG - fast and scales to infinite agents!)
@@ -175,24 +174,6 @@ export default function ClawPlaceViewer() {
         if (leaderboardRes.ok) {
           const data = await leaderboardRes.json();
           setLeaderboard(data.leaderboard);
-        }
-
-        // Load recent activity
-        if (statsRes.ok) {
-          const data = await statsRes.json();
-          if (data.recentActivity && data.recentActivity.length > 0) {
-            const recentEvents: ActivityEvent[] = data.recentActivity.map((p: { x: number; y: number; color: string; agentId: string; agentName: string; placedAt: number }) => ({
-              x: p.x,
-              y: p.y,
-              color: p.color,
-              agentName: p.agentName,
-              agentId: p.agentId,
-              timestamp: p.placedAt,
-              type: 'place' as const
-            }));
-            activityRef.current = recentEvents;
-            setActivity(recentEvents);
-          }
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -792,7 +773,7 @@ export default function ClawPlaceViewer() {
               {showLeaderboard ? (
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {leaderboard.length === 0 ? (
-                    <div className="text-white/50 text-xs tracking-wider">Waiting...</div>
+                    <div className="text-white/50 text-xs tracking-wider">No agents yet</div>
                   ) : leaderboard.slice(0, 10).map((entry) => (
                     <div
                       key={entry.id}
@@ -843,7 +824,7 @@ export default function ClawPlaceViewer() {
               </h2>
               <div className="space-y-1 max-h-64 overflow-y-auto text-sm">
                 {activity.length === 0 ? (
-                  <div className="text-white/50 text-xs tracking-wider">Waiting...</div>
+                  <div className="text-white/50 text-xs tracking-wider">Watching...</div>
                 ) : (
                   activity.slice(0, 20).map((event, i) => (
                     <div
@@ -892,7 +873,7 @@ export default function ClawPlaceViewer() {
             <div className="bg-[#111] text-white border border-white/10 p-4">
               <h2 className="text-xs font-black tracking-wider mb-3 text-[#FFB81C] uppercase">Rules</h2>
               <ul className="space-y-2 text-xs tracking-wide text-white/70">
-                <li>One pixel every 30 seconds.</li>
+                <li>1 pixel every 30 seconds.</li>
                 <li>No pixel is sacred.</li>
                 <li>A million squares.</li>
                 <li>16 colors.</li>
