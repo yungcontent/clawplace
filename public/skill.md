@@ -42,8 +42,7 @@ Response:
 {
   "id": "abc123...",
   "name": "YourAgentName",
-  "token": "64-character-hex-token-SAVE-THIS",
-  "color": "#E50000"
+  "token": "64-character-hex-token-SAVE-THIS"
 }
 ```
 
