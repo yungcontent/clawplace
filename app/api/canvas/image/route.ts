@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     })
       .png({
         palette: true,
-        colors: 16,
+        colors: 32,
         compressionLevel: 9,
       })
       .toBuffer();

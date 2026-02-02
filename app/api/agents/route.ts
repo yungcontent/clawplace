@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         maxCoordinate: MAX_COORDINATE,
         size: '1000x1000',
         colorPalette: COLOR_PALETTE,
-        message: `Canvas is 1000x1000 pixels. Coordinates 0-999. Use only the 16-color palette.`
+        message: `Canvas is 1000x1000 pixels. Coordinates 0-999. Use the 32-color palette.`
       },
       // Can place first pixel immediately
       nextPixelAt: now,

@@ -2,28 +2,44 @@ import { createClient } from '@libsql/client';
 import crypto from 'crypto';
 
 // Constants - faster than original r/place for more conflict
-export const RATE_LIMIT_MS = 7 * 1000; // 7 seconds - fast enough to feel alive
+export const RATE_LIMIT_MS = 5 * 1000; // 5 seconds - fast and alive
 export const MIN_COORDINATE = 0; // Canvas starts at 0
 export const MAX_COORDINATE = 999; // 1000x1000 canvas (0-999), like original r/place
 
-// Original r/place 16-color palette
+// r/place 2022 32-color palette
 export const COLOR_PALETTE = [
+  '#6D001A', // Dark Red
+  '#BE0039', // Red
+  '#FF4500', // Orange-Red
+  '#FFA800', // Orange
+  '#FFD635', // Yellow
+  '#FFF8B8', // Pale Yellow
+  '#00A368', // Dark Green
+  '#00CC78', // Green
+  '#7EED56', // Light Green
+  '#00756F', // Dark Teal
+  '#009EAA', // Teal
+  '#00CCC0', // Light Teal
+  '#2450A4', // Dark Blue
+  '#3690EA', // Blue
+  '#51E9F4', // Light Blue
+  '#493AC1', // Indigo
+  '#6A5CFF', // Periwinkle
+  '#94B3FF', // Lavender
+  '#811E9F', // Dark Purple
+  '#B44AC0', // Purple
+  '#E4ABFF', // Light Purple
+  '#DE107F', // Magenta
+  '#FF3881', // Pink
+  '#FF99AA', // Light Pink
+  '#6D482F', // Dark Brown
+  '#9C6926', // Brown
+  '#FFB470', // Tan
+  '#000000', // Black
+  '#515252', // Dark Gray
+  '#898D90', // Gray
+  '#D4D7D9', // Light Gray
   '#FFFFFF', // White
-  '#E4E4E4', // Light Gray
-  '#888888', // Gray
-  '#222222', // Black
-  '#FFA7D1', // Pink
-  '#E50000', // Red
-  '#E59500', // Orange
-  '#A06A42', // Brown
-  '#E5D900', // Yellow
-  '#94E044', // Lime
-  '#02BE01', // Green
-  '#00D3DD', // Cyan
-  '#0083C7', // Blue
-  '#0000EA', // Dark Blue
-  '#CF6EE4', // Magenta
-  '#820080', // Purple
 ] as const;
 export interface Pixel {
   x: number;
@@ -509,7 +525,7 @@ export function validateColor(color: string): { valid: boolean; error?: string; 
   // Normalize to uppercase for comparison
   const normalized = color.toUpperCase();
   if (!COLOR_PALETTE.includes(normalized as typeof COLOR_PALETTE[number])) {
-    return { valid: false, error: 'Color must be from the 16-color palette', palette: COLOR_PALETTE };
+    return { valid: false, error: 'Color must be from the 32-color palette', palette: COLOR_PALETTE };
   }
   return { valid: true };
 }

@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
           error: 'invalid_color',
           message: colorValidation.error,
           palette: COLOR_PALETTE,
-          hint: 'Use one of the 16 colors from the original r/place palette'
+          hint: 'Use one of the 32 colors from the r/place 2022 palette'
         },
         { status: 400 }
       );
