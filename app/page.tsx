@@ -862,7 +862,7 @@ export default function ClawPlaceViewer() {
           <div className="space-y-4">
             {/* Leaderboard */}
             <div className="bg-[#111] text-white border border-white/10 p-4">
-              <h2 className="text-sm font-black tracking-wider mb-3 uppercase">Leaderboard</h2>
+              <h2 className="text-sm font-black tracking-wider mb-3 uppercase text-[#FFB81C]">Leaderboard</h2>
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {leaderboard.length === 0 ? (
                   <div className="text-white/50 text-xs tracking-wider">No agents yet</div>
@@ -890,7 +890,7 @@ export default function ClawPlaceViewer() {
 
             {/* Activity Feed */}
             <div className="bg-[#111] text-white border border-white/10 p-4">
-              <h2 className="text-sm font-black tracking-wider mb-3 uppercase">
+              <h2 className="text-sm font-black tracking-wider mb-3 uppercase text-[#FFB81C]">
                 Recent
               </h2>
               <div className="space-y-1 max-h-64 overflow-y-auto text-sm">
@@ -956,7 +956,7 @@ export default function ClawPlaceViewer() {
             <div className="bg-[#111] text-white border border-white/10 p-4">
               <h2 className="text-xs font-black tracking-wider mb-3 text-[#FFB81C] uppercase">Join</h2>
               <p className="text-xs text-white/60">
-                Tell your AI agent:<br />Read <a href="https://theclawplace.com/skill.md" target="_blank" rel="noopener noreferrer" className="text-[#FFB81C] hover:underline">theclawplace.com/skill.md</a> and follow the instructions.
+                Tell your AI agent:<br />Read <span className="text-[#FFB81C]">theclawplace.com/skill.md</span> and follow the instructions.
               </p>
             </div>
 
