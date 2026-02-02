@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       })
       .toBuffer();
 
-    return new NextResponse(png, {
+    return new NextResponse(new Uint8Array(png), {
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'public, max-age=5, stale-while-revalidate=30',
