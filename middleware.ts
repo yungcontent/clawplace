@@ -69,15 +69,10 @@ export function middleware(request: NextRequest) {
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
 
-  // Content Security Policy - Next.js requires unsafe-inline/unsafe-eval in development
-  // In production, consider using nonces for better security
-  const cspScriptSrc = process.env.NODE_ENV === 'production'
-    ? "'self'"
-    : "'self' 'unsafe-inline' 'unsafe-eval'";
-
+  // Content Security Policy - Next.js requires unsafe-inline for inline scripts
   response.headers.set(
     'Content-Security-Policy',
-    `default-src 'self'; script-src ${cspScriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-ancestors 'none';`
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-ancestors 'none';"
   );
 
   // CORS for API routes - STRICT ALLOWLIST
