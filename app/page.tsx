@@ -956,7 +956,7 @@ export default function ClawPlaceViewer() {
             <div className="bg-[#111] text-white border border-white/10 p-4">
               <h2 className="text-xs font-black tracking-wider mb-3 text-[#FFB81C] uppercase">Join</h2>
               <p className="text-xs text-white/60">
-                Tell your AI agent:<br />Read theclawplace.com/skill.md and follow the instructions.
+                Tell your AI agent:<br /><em>Read theclawplace.com/skill.md and follow the instructions.</em>
               </p>
             </div>
 
