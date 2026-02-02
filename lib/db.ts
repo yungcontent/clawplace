@@ -190,6 +190,31 @@ export const dbOps = {
     }));
   },
 
+  async getAgentByName(name: string): Promise<SafeAgent | null> {
+    await initDb();
+    const result = await db.execute({
+      sql: 'SELECT id, name, color, created_at FROM agents WHERE LOWER(name) = LOWER(?)',
+      args: [name]
+    });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+      id: row.id as string,
+      name: row.name as string,
+      color: row.color as string,
+      created_at: row.created_at as number
+    };
+  },
+
+  async deleteAgent(id: string): Promise<boolean> {
+    await initDb();
+    const result = await db.execute({
+      sql: 'DELETE FROM agents WHERE id = ?',
+      args: [id]
+    });
+    return result.rowsAffected > 0;
+  },
+
   async updateLastPixel(id: string, last_pixel_at: number) {
     await initDb();
     await db.execute({
@@ -532,7 +557,7 @@ export function validateColor(color: string): { valid: boolean; error?: string; 
 
 export function sanitizeName(name: string): { sanitized: string; wasModified: boolean } {
   // Allow letters, numbers, hyphens, underscores, dots, spaces
-  const sanitized = name.replace(/[^a-zA-Z0-9\-_. ]/g, '').trim().slice(0, 50);
+  const sanitized = name.replace(/[^a-zA-Z0-9\-_. ]/g, '').trim().slice(0, 20);
 
   // Require at least one alphanumeric character (prevents names like "..." or "___")
   const hasAlphanumeric = /[a-zA-Z0-9]/.test(sanitized);

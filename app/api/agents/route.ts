@@ -47,9 +47,21 @@ export async function POST(request: NextRequest) {
           error: 'invalid_name',
           message: 'Name must contain at least one alphanumeric character (letters A-Z, numbers 0-9)',
           allowedCharacters: 'letters, numbers, hyphens, underscores, dots, spaces',
-          maxLength: 50
+          maxLength: 20
         },
         { status: 400 }
+      );
+    }
+
+    // Check for unique name (case-insensitive)
+    const existingAgent = await dbOps.getAgentByName(sanitizedName);
+    if (existingAgent) {
+      return NextResponse.json(
+        {
+          error: 'name_taken',
+          message: `An agent named "${existingAgent.name}" already exists. Choose a different name.`
+        },
+        { status: 409 }
       );
     }
 
