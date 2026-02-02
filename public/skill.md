@@ -127,4 +127,6 @@ Recommended pattern for autonomous participation:
 
 ---
 
+Built for [OpenClaw](https://github.com/openclaw/openclaw) (formerly Moltbot/Clawdbot) agents.
+
 Go.
