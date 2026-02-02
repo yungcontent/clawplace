@@ -88,6 +88,7 @@ export default function ClawPlaceViewer() {
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [stats, setStats] = useState({ pixels: 0, agents: 0, viewers: 1 });
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [heatmapData, setHeatmapData] = useState<{ x: number; y: number; changes: number }[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [selectedPixel, setSelectedPixel] = useState<SelectedPixel | null>(null);
   const [jumpCoords, setJumpCoords] = useState({ x: '', y: '' });
@@ -183,6 +184,30 @@ export default function ClawPlaceViewer() {
 
     fetchData();
   }, [viewportSize.width, viewportSize.height]);
+
+  // Fetch heatmap data when enabled
+  useEffect(() => {
+    if (!showHeatmap) {
+      setHeatmapData([]);
+      return;
+    }
+
+    const fetchHeatmap = async () => {
+      try {
+        const res = await fetch('/api/canvas/activity');
+        if (res.ok) {
+          const data = await res.json();
+          setHeatmapData(data.heatmap || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch heatmap:', error);
+      }
+    };
+
+    fetchHeatmap();
+    const interval = setInterval(fetchHeatmap, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
+  }, [showHeatmap]);
 
   // SSE connection with reconnection logic
   useEffect(() => {
@@ -332,6 +357,18 @@ export default function ClawPlaceViewer() {
       }
     }
 
+    // Draw heatmap overlay
+    if (showHeatmap && heatmapData.length > 0) {
+      const maxChanges = Math.max(...heatmapData.map(h => h.changes));
+      for (const point of heatmapData) {
+        const intensity = point.changes / maxChanges;
+        const screenX = offset.x + point.x * PIXEL_SIZE * zoom;
+        const screenY = offset.y + point.y * PIXEL_SIZE * zoom;
+        ctx.fillStyle = `rgba(255, 184, 28, ${intensity * 0.7})`;
+        ctx.fillRect(screenX, screenY, PIXEL_SIZE * zoom, PIXEL_SIZE * zoom);
+      }
+    }
+
     // Draw selected pixel highlight
     if (selectedPixel) {
       const screenX = offset.x + selectedPixel.x * PIXEL_SIZE * zoom;
@@ -343,7 +380,7 @@ export default function ClawPlaceViewer() {
 
     lastDrawRef.current = Date.now();
     needsRedrawRef.current = false;
-  }, [offset, zoom, selectedPixel]);
+  }, [offset, zoom, selectedPixel, showHeatmap, heatmapData]);
 
   // Draw immediately on user interactions (offset, zoom, selection changes)
   useEffect(() => {
@@ -387,9 +424,30 @@ export default function ClawPlaceViewer() {
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Min zoom keeps canvas filling viewport
+    const minZoom = Math.max(viewportSize.width, viewportSize.height) / (1000 * PIXEL_SIZE);
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(z => Math.max(0.01, Math.min(5, z * delta)));
-  }, []);
+    const newZoom = Math.max(minZoom, Math.min(5, zoom * delta));
+
+    // Zoom towards cursor position
+    const newOffsetX = mouseX - (mouseX - offset.x) * (newZoom / zoom);
+    const newOffsetY = mouseY - (mouseY - offset.y) * (newZoom / zoom);
+
+    // Constrain offset to keep canvas in view
+    const canvasPixelSize = 1000 * PIXEL_SIZE * newZoom;
+    const constrainedX = Math.min(0, Math.max(viewportSize.width - canvasPixelSize, newOffsetX));
+    const constrainedY = Math.min(0, Math.max(viewportSize.height - canvasPixelSize, newOffsetY));
+
+    setZoom(newZoom);
+    setOffset({ x: constrainedX, y: constrainedY });
+  }, [zoom, offset, viewportSize]);
 
   // Touch handlers for mobile
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -594,7 +652,7 @@ export default function ClawPlaceViewer() {
           </div>
 
           {/* Tagline */}
-          <p className="text-xs md:text-sm font-medium mt-2 tracking-widest text-gray-400">
+          <p className="text-xs md:text-sm font-medium mt-4 tracking-widest text-gray-400">
             The machines are painting.
           </p>
         </div>
@@ -611,16 +669,41 @@ export default function ClawPlaceViewer() {
                 <div className="absolute bottom-4 right-8 z-10 flex items-center gap-2">
                   <div className="flex items-center border border-white/30 bg-black/80">
                     <button
-                      onClick={() => setZoom(z => Math.max(0.01, z * 0.7))}
-                      className="text-xs w-8 h-8 text-white hover:bg-white hover:text-black transition-colors font-bold"
+                      onClick={() => {
+                        const centerX = viewportSize.width / 2;
+                        const centerY = viewportSize.height / 2;
+                        const minZoom = Math.max(viewportSize.width, viewportSize.height) / (1000 * PIXEL_SIZE);
+                        const newZoom = Math.max(minZoom, zoom * 0.7);
+                        const newOffsetX = centerX - (centerX - offset.x) * (newZoom / zoom);
+                        const newOffsetY = centerY - (centerY - offset.y) * (newZoom / zoom);
+                        const canvasPixelSize = 1000 * PIXEL_SIZE * newZoom;
+                        setOffset({
+                          x: Math.min(0, Math.max(viewportSize.width - canvasPixelSize, newOffsetX)),
+                          y: Math.min(0, Math.max(viewportSize.height - canvasPixelSize, newOffsetY))
+                        });
+                        setZoom(newZoom);
+                      }}
+                      className="text-xs w-8 h-8 text-white hover:bg-white hover:text-black transition-colors font-bold cursor-pointer"
                       title="Zoom out"
                     >
                       −
                     </button>
                     <div className="w-px h-8 bg-white/30" />
                     <button
-                      onClick={() => setZoom(z => Math.min(5, z * 1.4))}
-                      className="text-xs w-8 h-8 text-white hover:bg-white hover:text-black transition-colors font-bold"
+                      onClick={() => {
+                        const centerX = viewportSize.width / 2;
+                        const centerY = viewportSize.height / 2;
+                        const newZoom = Math.min(5, zoom * 1.4);
+                        const newOffsetX = centerX - (centerX - offset.x) * (newZoom / zoom);
+                        const newOffsetY = centerY - (centerY - offset.y) * (newZoom / zoom);
+                        const canvasPixelSize = 1000 * PIXEL_SIZE * newZoom;
+                        setOffset({
+                          x: Math.min(0, Math.max(viewportSize.width - canvasPixelSize, newOffsetX)),
+                          y: Math.min(0, Math.max(viewportSize.height - canvasPixelSize, newOffsetY))
+                        });
+                        setZoom(newZoom);
+                      }}
+                      className="text-xs w-8 h-8 text-white hover:bg-white hover:text-black transition-colors font-bold cursor-pointer"
                       title="Zoom in"
                     >
                       +
@@ -632,7 +715,7 @@ export default function ClawPlaceViewer() {
                     className={`text-xs px-3 py-2 border font-bold tracking-wider transition-colors ${
                       isAlreadyFitAll
                         ? 'border-white/10 bg-black/80 text-white/20 cursor-not-allowed'
-                        : 'border-white/30 bg-black/80 text-white/60 hover:text-white hover:border-white/50'
+                        : 'border-white/30 bg-black/80 text-white/60 hover:text-white hover:border-white/50 cursor-pointer'
                     }`}
                     title="Zoom out to see the entire canvas"
                   >
@@ -640,7 +723,7 @@ export default function ClawPlaceViewer() {
                   </button>
                   <button
                     onClick={() => setShowHeatmap(!showHeatmap)}
-                    className={`text-xs px-3 py-2 border font-bold tracking-wider transition-colors ${
+                    className={`text-xs px-3 py-2 border font-bold tracking-wider transition-colors cursor-pointer ${
                       showHeatmap ? 'bg-[#FFB81C] text-black border-[#FFB81C]' : 'border-white/30 bg-black/80 text-white/60 hover:text-white hover:border-white/50'
                     }`}
                   >
@@ -829,11 +912,11 @@ export default function ClawPlaceViewer() {
                 <h2 className="text-xs font-black tracking-wider mb-2 uppercase">Heatmap</h2>
                 <div className="flex items-center gap-2">
                   <div className="h-3 flex-1" style={{
-                    background: 'linear-gradient(to right, #222, #fff)'
+                    background: 'linear-gradient(to right, #222, #FFB81C)'
                   }} />
                 </div>
                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>1 hour ago</span>
+                  <span>12 hours ago</span>
                   <span>Now</span>
                 </div>
               </div>

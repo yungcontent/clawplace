@@ -5,8 +5,8 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
 
-    // Time window (default: last hour)
-    const minutes = parseInt(searchParams.get('minutes') || '60');
+    // Time window (default: last 12 hours)
+    const minutes = parseInt(searchParams.get('minutes') || '720');
     const since = Date.now() - (Math.min(minutes, 1440) * 60 * 1000); // Max 24 hours
 
     // Optional: get activity for specific pixel
