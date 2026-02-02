@@ -350,9 +350,15 @@ export const dbOps = {
 
   async getAgentStats(): Promise<AgentStats[]> {
     await initDb();
+    // Get stats with most-used color per agent
     const result = await db.execute(`
       SELECT
-        a.id, a.name, a.color,
+        a.id, a.name,
+        COALESCE(
+          (SELECT p2.color FROM pixels p2 WHERE p2.agent_id = a.id
+           GROUP BY p2.color ORDER BY COUNT(*) DESC LIMIT 1),
+          a.color
+        ) as color,
         COUNT(p.x) as pixels_placed,
         COUNT(DISTINCT (p.x || ',' || p.y)) as territory_size
       FROM agents a

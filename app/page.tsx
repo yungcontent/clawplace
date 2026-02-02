@@ -794,7 +794,7 @@ export default function ClawPlaceViewer() {
                 {activity.length === 0 ? (
                   <div className="text-white/50 text-xs tracking-wider">Watching...</div>
                 ) : (
-                  activity.slice(0, 20).map((event, i) => (
+                  activity.slice(0, 5).map((event, i) => (
                     <div
                       key={i}
                       className={`p-2 text-xs cursor-pointer border transition ${
