@@ -502,40 +502,30 @@ export default function ClawPlaceViewer() {
     return { minX, maxX, minY, maxY };
   }, [canvasData?.canvas]);
 
-  // Calculate fit-all zoom level
+  // Calculate fit-all zoom level (full 1000x1000 canvas)
   const getFitAllZoom = useCallback(() => {
-    const bounds = getActualBounds();
-    const { minX, maxX, minY, maxY } = bounds || { minX: 0, maxX: 999, minY: 0, maxY: 999 };
-    const contentWidth = (maxX - minX + 1) * PIXEL_SIZE;
-    const contentHeight = (maxY - minY + 1) * PIXEL_SIZE;
-    const paddingFactor = 0.7;
-    const zoomX = (viewportSize.width * paddingFactor) / contentWidth;
-    const zoomY = (viewportSize.height * paddingFactor) / contentHeight;
-    return Math.min(zoomX, zoomY, 5);
-  }, [getActualBounds, viewportSize]);
+    const canvasSize = 1000 * PIXEL_SIZE;
+    const paddingFactor = 0.95;
+    const zoomX = (viewportSize.width * paddingFactor) / canvasSize;
+    const zoomY = (viewportSize.height * paddingFactor) / canvasSize;
+    return Math.min(zoomX, zoomY);
+  }, [viewportSize]);
 
   // Check if already at fit-all zoom
-  const isAlreadyFitAll = Math.abs(zoom - getFitAllZoom()) < 0.01;
+  const isAlreadyFitAll = Math.abs(zoom - getFitAllZoom()) < 0.005;
 
-  // Fit all pixels in view
+  // Fit full 1000x1000 canvas in view
   const handleFitAll = useCallback(() => {
-    const bounds = getActualBounds();
-    const { minX, maxX, minY, maxY } = bounds || { minX: 0, maxX: 999, minY: 0, maxY: 999 };
-    const contentWidth = (maxX - minX + 1) * PIXEL_SIZE;
-    const contentHeight = (maxY - minY + 1) * PIXEL_SIZE;
-    const paddingFactor = 0.7;
-    const zoomX = (viewportSize.width * paddingFactor) / contentWidth;
-    const zoomY = (viewportSize.height * paddingFactor) / contentHeight;
-    const newZoom = Math.min(zoomX, zoomY, 5);
-    const centerX = (minX + maxX + 1) / 2;
-    const centerY = (minY + maxY + 1) / 2;
+    const newZoom = getFitAllZoom();
+    const centerX = 500; // Center of 1000x1000
+    const centerY = 500;
 
-    setZoom(Math.max(0.001, newZoom));
+    setZoom(newZoom);
     setOffset({
       x: viewportSize.width / 2 - centerX * PIXEL_SIZE * newZoom,
       y: viewportSize.height / 2 - centerY * PIXEL_SIZE * newZoom
     });
-  }, [getActualBounds, viewportSize]);
+  }, [getFitAllZoom, viewportSize]);
 
   // Share screenshot
   const handleShare = useCallback(async () => {
