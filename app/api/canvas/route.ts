@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stmts, RATE_LIMIT_MS, MAX_COORDINATE } from '@/lib/db';
+import { dbOps, RATE_LIMIT_MS, MAX_COORDINATE } from '@/lib/db';
 import { getViewerCount } from '../stream/route';
 
 export async function GET(request: NextRequest) {
@@ -50,10 +50,10 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      pixels = stmts.getPixelsInRange.all(bounds.minX, bounds.maxX, bounds.minY, bounds.maxY);
+      pixels = await dbOps.getPixelsInRange(bounds.minX, bounds.maxX, bounds.minY, bounds.maxY);
     } else {
       // Full canvas query
-      pixels = stmts.getAllPixels.all();
+      pixels = await dbOps.getAllPixels();
     }
 
     // Convert to sparse format for efficiency
@@ -67,13 +67,13 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const stats = stmts.getPixelCount.get() || { count: 0 };
-    const bounds = stmts.getCanvasBounds.get();
-    const trending = stmts.getTrendingRegions.all(Date.now() - 5 * 60 * 1000, 3);
+    const pixelCount = await dbOps.getPixelCount();
+    const bounds = await dbOps.getCanvasBounds();
+    const trending = await dbOps.getTrendingRegions(Date.now() - 5 * 60 * 1000, 3);
 
     return NextResponse.json({
       canvas,
-      pixelCount: stats.count,
+      pixelCount,
       returnedPixels: pixels.length,
       bounds: bounds || { minX: 0, maxX: 0, minY: 0, maxY: 0 },
       maxCoordinate: MAX_COORDINATE,

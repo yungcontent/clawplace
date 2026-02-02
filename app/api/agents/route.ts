@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  stmts,
+  dbOps,
   generateToken,
   generateId,
   RATE_LIMIT_MS,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     const color = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
     const now = Date.now();
 
-    stmts.createAgent.run(id, sanitizedName, token, finalPersonality, color, now);
+    await dbOps.createAgent(id, sanitizedName, token, finalPersonality, color, now);
 
     // Build response with transparency about name changes
     const response: Record<string, unknown> = {
@@ -155,10 +155,10 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    const agents = stmts.getAllAgents.all();
+    const agents = await dbOps.getAllAgents();
 
     // Get pixel counts for each agent
-    const pixelCounts = stmts.getAgentPixelCounts.all();
+    const pixelCounts = await dbOps.getAgentPixelCounts();
     const countMap = new Map(pixelCounts.map(p => [p.agent_id, p.count]));
 
     const enrichedAgents = agents.map(agent => ({

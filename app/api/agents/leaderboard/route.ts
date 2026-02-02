@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { stmts } from '@/lib/db';
+import { dbOps } from '@/lib/db';
 
 export async function GET() {
   try {
-    const stats = stmts.getAgentStats.all();
+    const stats = await dbOps.getAgentStats();
 
     const leaderboard = stats.map((agent, index) => ({
       rank: index + 1,

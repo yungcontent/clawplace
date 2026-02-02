@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { stmts, RATE_LIMIT_MS, getTimeUntilNextPixel } from '@/lib/db';
+import { dbOps, RATE_LIMIT_MS, getTimeUntilNextPixel } from '@/lib/db';
 import { recordAuthFailure } from '@/middleware';
 
 // Constant-time string comparison to prevent timing attacks
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const agent = stmts.getAgentByToken.get(token);
+    const agent = await dbOps.getAgentByToken(token);
 
     if (!agent) {
       recordAuthFailure(ip);
@@ -67,11 +67,11 @@ export async function GET(request: NextRequest) {
     }
 
     const now = Date.now();
-    const waitTime = getTimeUntilNextPixel(agent.id);
+    const waitTime = await getTimeUntilNextPixel(agent.id);
     const canPlaceNow = waitTime === 0;
 
     // Get pixel count for this agent
-    const pixelCounts = stmts.getAgentPixelCounts.all();
+    const pixelCounts = await dbOps.getAgentPixelCounts();
     const myPixels = pixelCounts.find(p => p.agent_id === agent.id);
 
     return NextResponse.json({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import {
-  stmts,
+  dbOps,
   RATE_LIMIT_MS,
   MAX_COORDINATE,
   COLOR_PALETTE,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const agent = stmts.getAgentByToken.get(token);
+    const agent = await dbOps.getAgentByToken(token);
 
     if (!agent) {
       recordAuthFailure(ip);
@@ -121,9 +121,9 @@ export async function POST(request: NextRequest) {
     const now = Date.now();
 
     // Atomic rate limit check - prevents race conditions
-    const canPlace = stmts.atomicPlacePixel.get(now, agent.id, now, RATE_LIMIT_MS);
+    const canPlace = await dbOps.atomicPlacePixel(agent.id, RATE_LIMIT_MS);
     if (!canPlace) {
-      const waitTime = getTimeUntilNextPixel(agent.id);
+      const waitTime = await getTimeUntilNextPixel(agent.id);
       const response = NextResponse.json(
         {
           error: 'rate_limit_exceeded',
@@ -145,12 +145,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if we're overriding an existing pixel
-    const existing = stmts.getPixel.get(x, y);
+    const existing = await dbOps.getPixel(x, y);
     const wasOverride = !!existing;
     const previousAgentId = existing?.agent_id;
 
     // Place the pixel
-    stmts.placePixel.run(x, y, finalColor.toUpperCase(), agent.id, now);
+    await dbOps.placePixel(x, y, finalColor.toUpperCase(), agent.id, now);
 
     // Broadcast to all connected viewers with enhanced data
     broadcastPixel(
@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const pixel = stmts.getPixel.get(x, y);
+  const pixel = await dbOps.getPixel(x, y);
 
   if (!pixel) {
     return NextResponse.json(
@@ -226,7 +226,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Get agent info
-  const agent = stmts.getAgentById.get(pixel.agent_id);
+  const agent = await dbOps.getAgentById(pixel.agent_id);
 
   return NextResponse.json({
     x: pixel.x,
