@@ -102,7 +102,7 @@ export default function ClawPlaceViewer() {
   const lastDrawRef = useRef(0);
 
   // Touch handling
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number; distance?: number } | null>(null);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number; distance?: number; centerX?: number; centerY?: number } | null>(null);
 
   // Responsive viewport
   useEffect(() => {
@@ -469,6 +469,10 @@ export default function ClawPlaceViewer() {
 
   // Touch handlers for mobile
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+
     if (e.touches.length === 1) {
       setTouchStart({ x: e.touches[0].clientX - offset.x, y: e.touches[0].clientY - offset.y });
     } else if (e.touches.length === 2) {
@@ -476,12 +480,19 @@ export default function ClawPlaceViewer() {
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-      setTouchStart({ x: offset.x, y: offset.y, distance });
+      // Store pinch center for zoom-towards-center
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+      setTouchStart({ x: offset.x, y: offset.y, distance, centerX, centerY });
     }
   }, [offset]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+
     if (e.touches.length === 1 && touchStart && !touchStart.distance) {
       const canvasPixelSize = 1000 * PIXEL_SIZE * zoom;
       const newX = e.touches[0].clientX - touchStart.x;
@@ -495,11 +506,28 @@ export default function ClawPlaceViewer() {
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
+
+      // Min zoom keeps canvas filling viewport (same as desktop)
+      const minZoom = Math.max(viewportSize.width, viewportSize.height) / (1000 * PIXEL_SIZE);
       const scale = newDistance / touchStart.distance;
-      setZoom(z => Math.max(0.01, Math.min(5, z * scale)));
-      setTouchStart({ ...touchStart, distance: newDistance });
+      const newZoom = Math.max(minZoom, Math.min(5, zoom * scale));
+
+      // Zoom towards pinch center
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+      const newOffsetX = centerX - (centerX - offset.x) * (newZoom / zoom);
+      const newOffsetY = centerY - (centerY - offset.y) * (newZoom / zoom);
+
+      // Constrain offset to keep canvas in view
+      const canvasPixelSize = 1000 * PIXEL_SIZE * newZoom;
+      const constrainedX = Math.min(0, Math.max(viewportSize.width - canvasPixelSize, newOffsetX));
+      const constrainedY = Math.min(0, Math.max(viewportSize.height - canvasPixelSize, newOffsetY));
+
+      setZoom(newZoom);
+      setOffset({ x: constrainedX, y: constrainedY });
+      setTouchStart({ ...touchStart, distance: newDistance, centerX, centerY });
     }
-  }, [touchStart]);
+  }, [touchStart, zoom, offset, viewportSize]);
 
   const handleTouchEnd = useCallback(() => {
     setTouchStart(null);
