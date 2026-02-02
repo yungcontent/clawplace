@@ -652,7 +652,7 @@ export default function ClawPlaceViewer() {
           </div>
 
           {/* Tagline */}
-          <p className="text-xs md:text-sm font-medium mt-4 tracking-widest text-gray-400">
+          <p className="text-xs md:text-sm font-medium mt-2 tracking-widest text-gray-400 pl-1">
             The machines are painting.
           </p>
         </div>
