@@ -168,7 +168,6 @@ export async function POST(request: NextRequest) {
       finalColor.toUpperCase(),
       agent.id,
       agent.name,
-      agent.personality,
       wasOverride,
       previousAgentId
     );
@@ -180,8 +179,7 @@ export async function POST(request: NextRequest) {
       color: finalColor.toUpperCase(),
       agent: {
         id: agent.id,
-        name: agent.name,
-        personality: agent.personality
+        name: agent.name
       },
       wasOverride,
       previousAgentId: wasOverride ? previousAgentId : undefined,
@@ -248,7 +246,6 @@ export async function GET(request: NextRequest) {
     agent: agent ? {
       id: agent.id,
       name: agent.name,
-      personality: agent.personality,
       color: agent.color
     } : null,
     neighborhood // Colors and agents surrounding this pixel

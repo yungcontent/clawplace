@@ -25,9 +25,6 @@ export const COLOR_PALETTE = [
   '#CF6EE4', // Magenta
   '#820080', // Purple
 ] as const;
-export const PERSONALITIES = ['architect', 'vandal', 'opportunist', 'chaos', 'border_patrol', 'gradient'] as const;
-export type Personality = typeof PERSONALITIES[number];
-
 export interface Pixel {
   x: number;
   y: number;
@@ -40,7 +37,6 @@ export interface Agent {
   id: string;
   name: string;
   token: string;
-  personality: Personality;
   color: string;
   created_at: number;
   last_pixel_at: number;
@@ -50,7 +46,6 @@ export interface Agent {
 export interface SafeAgent {
   id: string;
   name: string;
-  personality: Personality;
   color: string;
   created_at: number;
 }
@@ -58,7 +53,6 @@ export interface SafeAgent {
 export interface AgentStats {
   id: string;
   name: string;
-  personality: Personality;
   color: string;
   pixels_placed: number;
   territory_size: number;
@@ -125,11 +119,11 @@ export const dbOps = {
     await initDb();
   },
 
-  async createAgent(id: string, name: string, token: string, personality: string, color: string, created_at: number) {
+  async createAgent(id: string, name: string, token: string, color: string, created_at: number) {
     await initDb();
     await db.execute({
       sql: 'INSERT INTO agents (id, name, token, personality, color, created_at, last_pixel_at) VALUES (?, ?, ?, ?, ?, ?, 0)',
-      args: [id, name, token, personality, color, created_at]
+      args: [id, name, token, '', color, created_at]
     });
   },
 
@@ -145,7 +139,6 @@ export const dbOps = {
       id: row.id as string,
       name: row.name as string,
       token: row.token as string,
-      personality: row.personality as Personality,
       color: row.color as string,
       created_at: row.created_at as number,
       last_pixel_at: row.last_pixel_at as number
@@ -164,7 +157,6 @@ export const dbOps = {
       id: row.id as string,
       name: row.name as string,
       token: row.token as string,
-      personality: row.personality as Personality,
       color: row.color as string,
       created_at: row.created_at as number,
       last_pixel_at: row.last_pixel_at as number
@@ -173,11 +165,10 @@ export const dbOps = {
 
   async getAllAgents(): Promise<SafeAgent[]> {
     await initDb();
-    const result = await db.execute('SELECT id, name, personality, color, created_at FROM agents ORDER BY created_at DESC');
+    const result = await db.execute('SELECT id, name, color, created_at FROM agents ORDER BY created_at DESC');
     return result.rows.map(row => ({
       id: row.id as string,
       name: row.name as string,
-      personality: row.personality as Personality,
       color: row.color as string,
       created_at: row.created_at as number
     }));
@@ -278,10 +269,10 @@ export const dbOps = {
     return result.rows[0].count as number;
   },
 
-  async getRecentPixels(limit: number): Promise<(Pixel & { agent_name?: string; personality?: string })[]> {
+  async getRecentPixels(limit: number): Promise<(Pixel & { agent_name?: string })[]> {
     await initDb();
     const result = await db.execute({
-      sql: 'SELECT p.*, a.name as agent_name, a.personality FROM pixels p JOIN agents a ON p.agent_id = a.id ORDER BY placed_at DESC LIMIT ?',
+      sql: 'SELECT p.*, a.name as agent_name FROM pixels p JOIN agents a ON p.agent_id = a.id ORDER BY placed_at DESC LIMIT ?',
       args: [limit]
     });
     return result.rows.map(row => ({
@@ -290,8 +281,7 @@ export const dbOps = {
       color: row.color as string,
       agent_id: row.agent_id as string,
       placed_at: row.placed_at as number,
-      agent_name: row.agent_name as string,
-      personality: row.personality as string
+      agent_name: row.agent_name as string
     }));
   },
 
@@ -321,7 +311,7 @@ export const dbOps = {
     await initDb();
     const result = await db.execute(`
       SELECT
-        a.id, a.name, a.personality, a.color,
+        a.id, a.name, a.color,
         COUNT(p.x) as pixels_placed,
         COUNT(DISTINCT (p.x || ',' || p.y)) as territory_size
       FROM agents a
@@ -332,7 +322,6 @@ export const dbOps = {
     return result.rows.map(row => ({
       id: row.id as string,
       name: row.name as string,
-      personality: row.personality as Personality,
       color: row.color as string,
       pixels_placed: row.pixels_placed as number,
       territory_size: row.territory_size as number
@@ -468,7 +457,6 @@ export const dbOps = {
       id: row.id as string,
       name: row.name as string,
       token: row.token as string,
-      personality: row.personality as Personality,
       color: row.color as string,
       created_at: row.created_at as number,
       last_pixel_at: now

@@ -4,7 +4,6 @@ import {
   generateToken,
   generateId,
   RATE_LIMIT_MS,
-  PERSONALITIES,
   sanitizeName,
   MIN_COORDINATE,
   MAX_COORDINATE,
@@ -32,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, personality } = body;
+    const { name } = body;
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json(
@@ -54,38 +53,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate personality or return error with available options
-    let finalPersonality: typeof PERSONALITIES[number];
-    if (personality) {
-      if (!PERSONALITIES.includes(personality)) {
-        return NextResponse.json(
-          {
-            error: 'invalid_personality',
-            message: `Invalid personality: "${personality}"`,
-            requested: personality,
-            available: [...PERSONALITIES]
-          },
-          { status: 400 }
-        );
-      }
-      finalPersonality = personality;
-    } else {
-      finalPersonality = PERSONALITIES[Math.floor(Math.random() * PERSONALITIES.length)];
-    }
-
     const id = generateId();
     const token = generateToken();
     const color = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
     const now = Date.now();
 
-    await dbOps.createAgent(id, sanitizedName, token, finalPersonality, color, now);
+    await dbOps.createAgent(id, sanitizedName, token, color, now);
 
     // Build response with transparency about name changes
     const response: Record<string, unknown> = {
       id,
       name: sanitizedName,
       token,
-      personality: finalPersonality,
       color,
       message: 'Agent registered successfully. Save your token — it\'s your only way to place pixels!',
       // Rate limit info
@@ -173,15 +152,13 @@ export async function GET() {
     const enrichedAgents = agents.map(agent => ({
       id: agent.id,
       name: agent.name,
-      personality: agent.personality,
       color: agent.color,
       pixelsPlaced: countMap.get(agent.id) || 0
     }));
 
     return NextResponse.json({
       agents: enrichedAgents,
-      count: agents.length,
-      personalities: [...PERSONALITIES]
+      count: agents.length
     });
   } catch (error) {
     // Sanitize error logging

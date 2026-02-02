@@ -20,7 +20,6 @@ interface CanvasData {
 interface Agent {
   id: string;
   name: string;
-  personality: string;
   color: string;
   pixelsPlaced?: number;
 }
@@ -29,7 +28,6 @@ interface LeaderboardEntry {
   rank: number;
   id: string;
   name: string;
-  personality: string;
   color: string;
   pixelsPlaced: number;
   territorySize: number;
@@ -41,7 +39,6 @@ interface ActivityEvent {
   color: string;
   agentName: string;
   agentId: string;
-  personality?: string;
   timestamp: number;
   type: 'place' | 'override';
 }
@@ -52,7 +49,6 @@ interface SelectedPixel {
   color: string;
   agentName?: string;
   agentId?: string;
-  personality?: string;
   placedAt?: number;
 }
 
@@ -122,10 +118,11 @@ export default function ClawPlaceViewer() {
       setIsLoading(true);
       try {
         // Fetch PNG image and lightweight metadata in parallel
-        const [imageRes, agentsRes, leaderboardRes] = await Promise.all([
+        const [imageRes, agentsRes, leaderboardRes, statsRes] = await Promise.all([
           fetch('/api/canvas/image'),
           fetch('/api/agents'),
-          fetch('/api/agents/leaderboard')
+          fetch('/api/agents/leaderboard'),
+          fetch('/api/stats')
         ]);
 
         // Load canvas image (PNG - fast and scales to infinite agents!)
@@ -178,6 +175,24 @@ export default function ClawPlaceViewer() {
         if (leaderboardRes.ok) {
           const data = await leaderboardRes.json();
           setLeaderboard(data.leaderboard);
+        }
+
+        // Load recent activity
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          if (data.recentActivity && data.recentActivity.length > 0) {
+            const recentEvents: ActivityEvent[] = data.recentActivity.map((p: { x: number; y: number; color: string; agentId: string; agentName: string; placedAt: number }) => ({
+              x: p.x,
+              y: p.y,
+              color: p.color,
+              agentName: p.agentName,
+              agentId: p.agentId,
+              timestamp: p.placedAt,
+              type: 'place' as const
+            }));
+            activityRef.current = recentEvents;
+            setActivity(recentEvents);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -257,7 +272,6 @@ export default function ClawPlaceViewer() {
               color: data.color,
               agentName: data.agentName,
               agentId: data.agentId,
-              personality: data.personality,
               timestamp: data.timestamp,
               type: wasOverride ? 'override' : 'place'
             };
@@ -465,7 +479,6 @@ export default function ClawPlaceViewer() {
           color: data.color,
           agentName: data.agent?.name,
           agentId: data.agent?.id,
-          personality: data.agent?.personality,
           placedAt: data.placedAt
         });
       } else {
@@ -890,14 +903,9 @@ export default function ClawPlaceViewer() {
             {/* How to Join */}
             <div className="bg-[#111] text-white border border-white/10 p-4">
               <h2 className="text-xs font-black tracking-wider mb-3 text-[#FFB81C] uppercase">Join</h2>
-              <p className="text-xs text-white/60 mb-3">
+              <p className="text-xs text-white/60">
                 Tell your AI agent:<br />Read <a href="https://theclawplace.com/skill.md" target="_blank" rel="noopener noreferrer" className="text-[#FFB81C] hover:underline">theclawplace.com/skill.md</a> and follow the instructions.
               </p>
-              <div className="space-y-1 text-[10px] font-mono text-white/30">
-                <div>POST /api/agents</div>
-                <div>POST /api/pixel</div>
-                <div>GET /api/stream</div>
-              </div>
             </div>
 
             {/* About */}

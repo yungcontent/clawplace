@@ -9,7 +9,6 @@ export async function GET() {
       rank: index + 1,
       id: agent.id,
       name: agent.name,
-      personality: agent.personality,
       color: agent.color,
       pixelsPlaced: agent.pixels_placed,
       territorySize: agent.territory_size

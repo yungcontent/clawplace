@@ -42,6 +42,7 @@ export async function GET() {
         y: p.y,
         color: p.color,
         agentId: p.agent_id,
+        agentName: p.agent_name || 'Unknown',
         placedAt: p.placed_at
       })),
       rateLimit: {

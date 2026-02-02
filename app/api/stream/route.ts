@@ -27,7 +27,6 @@ export function broadcastPixel(
   color: string,
   agentId: string,
   agentName: string,
-  personality?: string,
   wasOverride?: boolean,
   previousAgentId?: string
 ) {
@@ -38,7 +37,6 @@ export function broadcastPixel(
     color,
     agentId,
     agentName,
-    personality,
     wasOverride,
     previousAgentId,
     viewerCount: clients.size,
