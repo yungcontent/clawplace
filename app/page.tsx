@@ -105,6 +105,8 @@ export default function ClawPlaceViewer() {
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const activityRef = useRef<ActivityEvent[]>([]);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
@@ -146,6 +148,32 @@ export default function ClawPlaceViewer() {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Auto-hide controls on desktop after inactivity
+  const resetControlsTimer = useCallback(() => {
+    // Only auto-hide on desktop (lg+)
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) return;
+
+    setControlsVisible(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, 3000);
+  }, []);
+
+  // Start the auto-hide timer on mount for desktop
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      resetControlsTimer();
+    }
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [resetControlsTimer]);
 
   // Fetch initial data - PNG-first for scalability (no massive JSON)
   useEffect(() => {
@@ -653,6 +681,10 @@ export default function ClawPlaceViewer() {
   // Check if already at fit-all zoom
   const isAlreadyFitAll = Math.abs(zoom - getFitAllZoom()) < 0.005;
 
+  // Check if at minimum zoom (can't zoom out further)
+  const minZoom = Math.max(viewportSize.width, viewportSize.height) / (1000 * PIXEL_SIZE);
+  const isAtMinZoom = zoom <= minZoom + 0.001;
+
   // Fit full 1000x1000 canvas in view
   const handleFitAll = useCallback(() => {
     const newZoom = getFitAllZoom();
@@ -684,6 +716,22 @@ export default function ClawPlaceViewer() {
       prompt('Copy this link:', shareUrl);
     }
   }, [offset, viewportSize, zoom]);
+
+  // Download full canvas as PNG
+  const handleDownload = useCallback(() => {
+    const offscreen = offscreenCanvasRef.current;
+    if (!offscreen) return;
+
+    offscreen.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `clawplace-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  }, []);
 
   // Current viewport coordinates
   const currentCoords = {
@@ -747,21 +795,23 @@ export default function ClawPlaceViewer() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-2 md:px-4 py-4">
+      <div className="max-w-7xl mx-auto px-0 md:px-2 py-2">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Canvas */}
           <div className="lg:col-span-3">
             <div className="overflow-hidden">
               {/* Canvas */}
-              <div className="relative flex justify-center">
-                {/* Overlay controls */}
-                <div className="absolute bottom-4 right-4 md:right-8 z-10 flex items-center gap-2">
+              <div className="flex justify-center" onMouseMove={resetControlsTimer}>
+                <div className="relative">
+                {/* Overlay controls - desktop only, auto-hide */}
+                <div className={`hidden lg:flex absolute bottom-4 right-4 z-10 items-center gap-2 transition-opacity duration-300 ${
+                  controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}>
                   <div className="flex items-center border border-white/30 bg-black/80">
                     <button
                       onClick={() => {
                         const centerX = viewportSize.width / 2;
                         const centerY = viewportSize.height / 2;
-                        const minZoom = Math.max(viewportSize.width, viewportSize.height) / (1000 * PIXEL_SIZE);
                         const newZoom = Math.max(minZoom, zoom * 0.7);
                         const newOffsetX = centerX - (centerX - offset.x) * (newZoom / zoom);
                         const newOffsetY = centerY - (centerY - offset.y) * (newZoom / zoom);
@@ -772,7 +822,12 @@ export default function ClawPlaceViewer() {
                         });
                         setZoom(newZoom);
                       }}
-                      className="text-base w-11 h-11 text-white hover:bg-white hover:text-black transition-colors font-bold cursor-pointer"
+                      disabled={isAtMinZoom}
+                      className={`text-base w-11 h-11 font-bold transition-colors ${
+                        isAtMinZoom
+                          ? 'text-white/20 cursor-not-allowed'
+                          : 'text-white hover:bg-white hover:text-black cursor-pointer'
+                      }`}
                       title="Zoom out"
                     >
                       −
@@ -808,7 +863,7 @@ export default function ClawPlaceViewer() {
                     }`}
                     title="Zoom out to see the entire canvas"
                   >
-                    FIT ALL
+                    FULL
                   </button>
                   <button
                     onClick={() => setShowHeatmap(!showHeatmap)}
@@ -817,6 +872,13 @@ export default function ClawPlaceViewer() {
                     }`}
                   >
                     HEAT
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    className="text-xs px-3 h-11 border border-white/30 bg-black/80 text-white/60 hover:text-white hover:border-white/50 font-bold tracking-wider transition-colors cursor-pointer"
+                    title="Download full canvas as PNG"
+                  >
+                    SAVE IMAGE
                   </button>
                 </div>
                 {isLoading && (
@@ -947,7 +1009,81 @@ export default function ClawPlaceViewer() {
                     </div>
                   </>
                 )}
+                </div>
               </div>
+            </div>
+
+            {/* Mobile controls - compact bar below canvas */}
+            <div className="lg:hidden flex items-center justify-center gap-1.5 mt-1 px-2">
+              <div className="flex items-center border border-white/20 bg-black/60">
+                <button
+                  onClick={() => {
+                    const centerX = viewportSize.width / 2;
+                    const centerY = viewportSize.height / 2;
+                    const newZoom = Math.max(minZoom, zoom * 0.7);
+                    const newOffsetX = centerX - (centerX - offset.x) * (newZoom / zoom);
+                    const newOffsetY = centerY - (centerY - offset.y) * (newZoom / zoom);
+                    const canvasPixelSize = 1000 * PIXEL_SIZE * newZoom;
+                    setOffset({
+                      x: Math.min(0, Math.max(viewportSize.width - canvasPixelSize, newOffsetX)),
+                      y: Math.min(0, Math.max(viewportSize.height - canvasPixelSize, newOffsetY))
+                    });
+                    setZoom(newZoom);
+                  }}
+                  disabled={isAtMinZoom}
+                  className={`text-sm w-9 h-9 font-bold transition-colors ${
+                    isAtMinZoom
+                      ? 'text-white/20'
+                      : 'text-white/70 active:bg-white active:text-black'
+                  }`}
+                >
+                  −
+                </button>
+                <div className="w-px h-9 bg-white/20" />
+                <button
+                  onClick={() => {
+                    const centerX = viewportSize.width / 2;
+                    const centerY = viewportSize.height / 2;
+                    const newZoom = Math.min(5, zoom * 1.4);
+                    const newOffsetX = centerX - (centerX - offset.x) * (newZoom / zoom);
+                    const newOffsetY = centerY - (centerY - offset.y) * (newZoom / zoom);
+                    const canvasPixelSize = 1000 * PIXEL_SIZE * newZoom;
+                    setOffset({
+                      x: Math.min(0, Math.max(viewportSize.width - canvasPixelSize, newOffsetX)),
+                      y: Math.min(0, Math.max(viewportSize.height - canvasPixelSize, newOffsetY))
+                    });
+                    setZoom(newZoom);
+                  }}
+                  className="text-sm w-9 h-9 text-white/70 active:bg-white active:text-black transition-colors font-bold"
+                >
+                  +
+                </button>
+              </div>
+              <button
+                onClick={handleFitAll}
+                disabled={isAlreadyFitAll}
+                className={`text-[10px] px-2.5 h-9 border font-bold tracking-wider transition-colors ${
+                  isAlreadyFitAll
+                    ? 'border-white/10 bg-black/60 text-white/20'
+                    : 'border-white/20 bg-black/60 text-white/50 active:bg-white active:text-black'
+                }`}
+              >
+                FULL
+              </button>
+              <button
+                onClick={() => setShowHeatmap(!showHeatmap)}
+                className={`text-[10px] px-2.5 h-9 border font-bold tracking-wider transition-colors ${
+                  showHeatmap ? 'bg-[#FFB81C] text-black border-[#FFB81C]' : 'border-white/20 bg-black/60 text-white/50 active:bg-white active:text-black'
+                }`}
+              >
+                HEAT
+              </button>
+              <button
+                onClick={handleDownload}
+                className="text-[10px] px-2.5 h-9 border border-white/20 bg-black/60 text-white/50 active:bg-white active:text-black font-bold tracking-wider transition-colors"
+              >
+                SAVE IMAGE
+              </button>
             </div>
 
             {/* Trending Battles */}
