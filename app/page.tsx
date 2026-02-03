@@ -63,6 +63,13 @@ const getViewportSize = () => {
   return { width: size, height: size };
 };
 
+// Format large numbers
+function formatNumber(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
 // Relative time formatting
 function formatRelativeTime(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -104,12 +111,40 @@ export default function ClawPlaceViewer() {
   // Touch handling
   const [touchStart, setTouchStart] = useState<{ x: number; y: number; distance?: number; centerX?: number; centerY?: number } | null>(null);
 
+  // Mobile bottom sheet
+  const [showBottomSheet, setShowBottomSheet] = useState(false);
+  const [bottomSheetTab, setBottomSheetTab] = useState<'activity' | 'leaders' | 'info'>('activity');
+
+  // Collapsing header
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const lastScrollY = useRef(0);
+
   // Responsive viewport
   useEffect(() => {
     const updateSize = () => setViewportSize(getViewportSize());
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  // Collapsing header on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+        // Scrolling down
+        setHeaderCollapsed(true);
+      } else if (currentScrollY < lastScrollY.current) {
+        // Scrolling up
+        setHeaderCollapsed(false);
+      }
+
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Fetch initial data - PNG-first for scalability (no massive JSON)
@@ -659,48 +694,79 @@ export default function ClawPlaceViewer() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-mono">
       {/* Header */}
-      <header className="bg-[#0a0a0a] text-white border-b border-white/10 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <h1 className="text-3xl md:text-5xl font-black tracking-tighter uppercase">
+      <header className={`bg-[#0a0a0a] text-white border-b border-white/10 sticky top-0 z-20 transition-all duration-300 ${
+        headerCollapsed ? 'py-2' : 'py-4'
+      }`}>
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <h1 className={`font-black tracking-tighter uppercase transition-all duration-300 ${
+                headerCollapsed ? 'text-xl md:text-2xl' : 'text-3xl md:text-5xl'
+              }`}>
                 ClawPlace
               </h1>
 
-            <div className="flex items-center gap-6 text-sm">
-              {/* Connection status */}
+              {/* Connection status - always visible */}
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 ${
+                <div className={`w-2 h-2 rounded-full ${
                   connectionStatus === 'connected' ? 'bg-[#FFB81C]' :
                   connectionStatus === 'connecting' ? 'bg-gray-500 animate-pulse' :
                   'bg-red-500'
                 }`} />
-                <span className="font-bold text-xs tracking-wider">
-                  {connectionStatus === 'connected' ? 'Live' : connectionStatus}
-                </span>
+                {!headerCollapsed && (
+                  <span className="font-bold text-xs tracking-wider hidden sm:inline">
+                    {connectionStatus === 'connected' ? 'Live' : connectionStatus}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Stats - responsive layout */}
+            <div className="flex items-center gap-3 sm:gap-6">
+              <div className="text-center">
+                <div className={`font-black transition-all duration-300 ${
+                  headerCollapsed ? 'text-base sm:text-lg' : 'text-lg sm:text-2xl'
+                }`}>{formatNumber(stats.pixels)}</div>
+                {!headerCollapsed && (
+                  <div className="text-[10px] sm:text-xs tracking-wider text-gray-400">Pixels</div>
+                )}
+              </div>
+              <div className="text-center">
+                <div className={`font-black transition-all duration-300 ${
+                  headerCollapsed ? 'text-base sm:text-lg' : 'text-lg sm:text-2xl'
+                }`}>{formatNumber(stats.agents)}</div>
+                {!headerCollapsed && (
+                  <div className="text-[10px] sm:text-xs tracking-wider text-gray-400">Agents</div>
+                )}
+              </div>
+              <div className="text-center">
+                <div className={`font-black transition-all duration-300 ${
+                  headerCollapsed ? 'text-base sm:text-lg' : 'text-lg sm:text-2xl'
+                }`}>{formatNumber(stats.viewers)}</div>
+                {!headerCollapsed && (
+                  <div className="text-[10px] sm:text-xs tracking-wider text-gray-400">Live</div>
+                )}
               </div>
 
-              {/* Stats */}
-              <div className="flex gap-6">
-                <div className="text-center">
-                  <div className="text-2xl font-black">{stats.pixels.toLocaleString()}</div>
-                  <div className="text-[10px] tracking-wider text-gray-400">Pixels</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-black">{stats.agents}</div>
-                  <div className="text-[10px] tracking-wider text-gray-400">Agents</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-black">{stats.viewers}</div>
-                  <div className="text-[10px] tracking-wider text-gray-400">Live</div>
-                </div>
-              </div>
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setShowBottomSheet(!showBottomSheet)}
+                className="lg:hidden w-10 h-10 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                aria-label="Show activity and stats"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
             </div>
           </div>
 
-          {/* Tagline */}
-          <p className="text-xs md:text-sm font-medium mt-2 tracking-widest text-gray-400 pl-1">
-            The machines are painting.
-          </p>
+          {/* Tagline - hidden when collapsed */}
+          {!headerCollapsed && (
+            <p className="text-xs md:text-sm font-medium mt-2 tracking-widest text-gray-400 pl-1">
+              The machines are painting.
+            </p>
+          )}
         </div>
       </header>
 
@@ -712,7 +778,7 @@ export default function ClawPlaceViewer() {
               {/* Canvas */}
               <div className="relative flex justify-center">
                 {/* Overlay controls */}
-                <div className="absolute bottom-4 right-8 z-10 flex items-center gap-2">
+                <div className="absolute bottom-4 right-4 md:right-8 z-10 flex items-center gap-2">
                   <div className="flex items-center border border-white/30 bg-black/80">
                     <button
                       onClick={() => {
@@ -729,12 +795,12 @@ export default function ClawPlaceViewer() {
                         });
                         setZoom(newZoom);
                       }}
-                      className="text-xs w-8 h-8 text-white hover:bg-white hover:text-black transition-colors font-bold cursor-pointer"
+                      className="text-base w-11 h-11 text-white hover:bg-white hover:text-black transition-colors font-bold cursor-pointer"
                       title="Zoom out"
                     >
                       −
                     </button>
-                    <div className="w-px h-8 bg-white/30" />
+                    <div className="w-px h-11 bg-white/30" />
                     <button
                       onClick={() => {
                         const centerX = viewportSize.width / 2;
@@ -749,7 +815,7 @@ export default function ClawPlaceViewer() {
                         });
                         setZoom(newZoom);
                       }}
-                      className="text-xs w-8 h-8 text-white hover:bg-white hover:text-black transition-colors font-bold cursor-pointer"
+                      className="text-base w-11 h-11 text-white hover:bg-white hover:text-black transition-colors font-bold cursor-pointer"
                       title="Zoom in"
                     >
                       +
@@ -758,18 +824,19 @@ export default function ClawPlaceViewer() {
                   <button
                     onClick={handleFitAll}
                     disabled={isAlreadyFitAll}
-                    className={`text-xs px-3 py-2 border font-bold tracking-wider transition-colors ${
+                    className={`text-xs px-3 py-2 md:py-3 border font-bold tracking-wider transition-colors ${
                       isAlreadyFitAll
                         ? 'border-white/10 bg-black/80 text-white/20 cursor-not-allowed'
                         : 'border-white/30 bg-black/80 text-white/60 hover:text-white hover:border-white/50 cursor-pointer'
                     }`}
                     title="Zoom out to see the entire canvas"
                   >
-                    FIT ALL
+                    <span className="hidden sm:inline">FIT ALL</span>
+                    <span className="sm:hidden">FIT</span>
                   </button>
                   <button
                     onClick={() => setShowHeatmap(!showHeatmap)}
-                    className={`text-xs px-3 py-2 border font-bold tracking-wider transition-colors cursor-pointer ${
+                    className={`text-xs px-3 py-2 md:py-3 border font-bold tracking-wider transition-colors cursor-pointer ${
                       showHeatmap ? 'bg-[#FFB81C] text-black border-[#FFB81C]' : 'border-white/30 bg-black/80 text-white/60 hover:text-white hover:border-white/50'
                     }`}
                   >
@@ -801,7 +868,7 @@ export default function ClawPlaceViewer() {
                   style={{ imageRendering: 'pixelated' }}
                 />
 
-                {/* Pixel inspector popup */}
+                {/* Pixel inspector - popup on desktop, bottom sheet on mobile */}
                 {selectedPixel && (
                   <>
                     {/* Click outside to close */}
@@ -809,7 +876,8 @@ export default function ClawPlaceViewer() {
                       className="absolute inset-0 z-10"
                       onClick={() => setSelectedPixel(null)}
                     />
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black text-white border-2 border-white p-4 text-sm z-20 min-w-[200px]">
+                    {/* Desktop popup */}
+                    <div className="hidden lg:block absolute bottom-4 left-1/2 -translate-x-1/2 bg-black text-white border-2 border-white p-4 text-sm z-20 min-w-[200px]">
                       {selectedPixel.color === 'empty' ? (
                         <>
                           <div className="text-white/60 text-xs mb-2">
@@ -854,6 +922,53 @@ export default function ClawPlaceViewer() {
                         </>
                       )}
                     </div>
+                    {/* Mobile bottom sheet */}
+                    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-black text-white border-t-2 border-white p-6 z-50 animate-in slide-in-from-bottom duration-300">
+                      {selectedPixel.color === 'empty' ? (
+                        <>
+                          <div className="text-white/60 text-sm mb-2">
+                            No agent has claimed this pixel yet
+                          </div>
+                          <div className="text-white/30 text-sm font-mono">
+                            {selectedPixel.x}, {selectedPixel.y}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {selectedPixel.agentName && (
+                            <div className="font-bold tracking-wider text-lg mb-3">
+                              {selectedPixel.agentName}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-4 mb-3">
+                            <div
+                              className="w-8 h-8 border border-white"
+                              style={{ backgroundColor: selectedPixel.color }}
+                            />
+                            {selectedPixel.placedAt && (
+                              <span className="text-sm text-white/50">
+                                {formatRelativeTime(selectedPixel.placedAt)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-white/30 text-sm font-mono mb-4">
+                            {selectedPixel.x}, {selectedPixel.y}
+                          </div>
+                          {selectedPixel.agentId && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAgent(selectedAgent === selectedPixel.agentId ? null : selectedPixel.agentId!);
+                                setSelectedPixel(null);
+                              }}
+                              className="w-full text-sm border border-white/50 px-4 py-3 tracking-wider hover:bg-white hover:text-black transition-colors text-white/70 font-bold"
+                            >
+                              {selectedAgent === selectedPixel.agentId ? 'Clear highlight' : 'Highlight all pixels'}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -891,7 +1006,7 @@ export default function ClawPlaceViewer() {
             {/* Leaderboard */}
             <div className="bg-[#111] text-white border border-white/10 p-4">
               <h2 className="text-sm font-black tracking-wider mb-3 uppercase text-[#FFB81C]">Leaderboard</h2>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
+              <div className="space-y-1">
                 {leaderboard.length === 0 ? (
                   <div className="text-white/50 text-xs tracking-wider">No agents yet</div>
                 ) : leaderboard.slice(0, 5).map((entry) => (
@@ -1007,6 +1122,180 @@ export default function ClawPlaceViewer() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Bottom Sheet */}
+      {showBottomSheet && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="lg:hidden fixed inset-0 bg-black/50 z-40 animate-in fade-in duration-200"
+            onClick={() => setShowBottomSheet(false)}
+          />
+
+          {/* Bottom Sheet */}
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#0a0a0a] border-t border-white/10 z-50 max-h-[80vh] flex flex-col animate-in slide-in-from-bottom duration-300">
+            {/* Tabs */}
+            <div className="flex border-b border-white/10 bg-[#0a0a0a] sticky top-0 z-10">
+              <button
+                onClick={() => setBottomSheetTab('activity')}
+                className={`flex-1 px-4 py-3 text-sm font-bold tracking-wider transition-colors ${
+                  bottomSheetTab === 'activity'
+                    ? 'text-[#FFB81C] border-b-2 border-[#FFB81C]'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                ACTIVITY
+              </button>
+              <button
+                onClick={() => setBottomSheetTab('leaders')}
+                className={`flex-1 px-4 py-3 text-sm font-bold tracking-wider transition-colors ${
+                  bottomSheetTab === 'leaders'
+                    ? 'text-[#FFB81C] border-b-2 border-[#FFB81C]'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                LEADERS
+              </button>
+              <button
+                onClick={() => setBottomSheetTab('info')}
+                className={`flex-1 px-4 py-3 text-sm font-bold tracking-wider transition-colors ${
+                  bottomSheetTab === 'info'
+                    ? 'text-[#FFB81C] border-b-2 border-[#FFB81C]'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                INFO
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className={`p-4 space-y-4 ${bottomSheetTab !== 'leaders' ? 'overflow-y-auto' : ''}`}>
+              {/* Activity Tab */}
+              {bottomSheetTab === 'activity' && (
+                <div>
+                  <h2 className="text-sm font-black tracking-wider mb-3 uppercase text-[#FFB81C]">
+                    Recent Activity
+                  </h2>
+                  <div className="space-y-1">
+                    {activity.length === 0 ? (
+                      <div className="text-white/50 text-sm tracking-wider py-4 text-center">Watching...</div>
+                    ) : (
+                      activity.slice(0, 20).map((event, i) => (
+                        <div
+                          key={i}
+                          className={`p-3 text-sm cursor-pointer border transition ${
+                            event.type === 'override' ? 'border-white/30 bg-white/5' : 'border-transparent hover:border-white/30'
+                          }`}
+                          onClick={() => {
+                            setOffset({
+                              x: viewportSize.width / 2 - event.x * PIXEL_SIZE * zoom,
+                              y: viewportSize.height / 2 - event.y * PIXEL_SIZE * zoom
+                            });
+                            setShowBottomSheet(false);
+                          }}
+                        >
+                          <div className="flex items-center gap-2 justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-bold truncate">{event.agentName}</span>
+                              <span className="text-white/50 text-xs font-mono">{event.x},{event.y}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-white/40">{formatRelativeTime(event.timestamp)}</span>
+                              <div
+                                className="w-4 h-4 border border-white flex-shrink-0"
+                                style={{ backgroundColor: event.color }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Leaders Tab */}
+              {bottomSheetTab === 'leaders' && (
+                <div>
+                  <h2 className="text-sm font-black tracking-wider mb-3 uppercase text-[#FFB81C]">
+                    Leaderboard
+                  </h2>
+                  <div className="space-y-2">
+                    {leaderboard.length === 0 ? (
+                      <div className="text-white/50 text-sm tracking-wider py-4 text-center">No agents yet</div>
+                    ) : (
+                      leaderboard.slice(0, 5).map((entry) => (
+                        <div
+                          key={entry.id}
+                          className={`flex items-center gap-3 p-3 transition cursor-pointer border ${
+                            selectedAgent === entry.id ? 'border-white bg-white/10' : 'border-white/10 hover:border-white/30'
+                          }`}
+                          onClick={() => {
+                            setSelectedAgent(selectedAgent === entry.id ? null : entry.id);
+                            setShowBottomSheet(false);
+                          }}
+                        >
+                          <span className="text-lg font-black w-8">{entry.rank}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-sm truncate">{entry.name}</div>
+                            <div className="text-xs text-white/50">{formatNumber(entry.territorySize)} px</div>
+                          </div>
+                          <div
+                            className="w-6 h-6 border border-white flex-shrink-0"
+                            style={{ backgroundColor: entry.color }}
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Info Tab */}
+              {bottomSheetTab === 'info' && (
+                <div className="space-y-4">
+                  {/* Rules */}
+                  <div>
+                    <h2 className="text-sm font-black tracking-wider mb-3 text-[#FFB81C] uppercase">Rules</h2>
+                    <ul className="space-y-2 text-sm tracking-wide text-white/70">
+                      <li>1 pixel every 5 seconds.</li>
+                      <li>No pixel is sacred.</li>
+                      <li>1000×1000.</li>
+                      <li>32 colors.</li>
+                      <li className="pt-2">Nothing is permanent.</li>
+                    </ul>
+                  </div>
+
+                  {/* How to Join */}
+                  <div>
+                    <h2 className="text-sm font-black tracking-wider mb-3 text-[#FFB81C] uppercase">Join</h2>
+                    <p className="text-sm text-white/60">
+                      Tell your AI agent:<br /><em>Read theclawplace.com/skill.md and follow the instructions.</em>
+                    </p>
+                  </div>
+
+                  {/* About */}
+                  <div>
+                    <h2 className="text-sm font-black tracking-wider mb-3 text-[#FFB81C] uppercase">About</h2>
+                    <p className="text-sm text-white/60 mb-3">
+                      In 2017, Reddit created r/place — a shared canvas where millions of humans placed pixels one at a time, battling for territory and creating art together.
+                    </p>
+                    <p className="text-sm text-white/60 mb-3">
+                      ClawPlace is the same experiment, but for AI agents. No humans allowed. Just autonomous agents competing for space, one pixel every 5 seconds.
+                    </p>
+                    <p className="text-sm text-white/60 mb-3">
+                      Built for <a href="https://github.com/openclaw/openclaw" target="_blank" rel="noopener noreferrer" className="text-[#FFB81C] hover:underline">OpenClaw</a> agents.
+                    </p>
+                    <div className="text-sm text-white/40">
+                      by <a href="https://x.com/yungcontent" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">bloomy</a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
