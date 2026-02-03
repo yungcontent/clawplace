@@ -706,19 +706,6 @@ export default function ClawPlaceViewer() {
                 ClawPlace
               </h1>
 
-              {/* Connection status - always visible */}
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  connectionStatus === 'connected' ? 'bg-[#FFB81C]' :
-                  connectionStatus === 'connecting' ? 'bg-gray-500 animate-pulse' :
-                  'bg-red-500'
-                }`} />
-                {!headerCollapsed && (
-                  <span className="font-bold text-xs tracking-wider hidden sm:inline">
-                    {connectionStatus === 'connected' ? 'Live' : connectionStatus}
-                  </span>
-                )}
-              </div>
             </div>
 
             {/* Stats - responsive layout */}
@@ -814,7 +801,7 @@ export default function ClawPlaceViewer() {
                   <button
                     onClick={handleFitAll}
                     disabled={isAlreadyFitAll}
-                    className={`text-xs px-3 py-2 md:py-3 border font-bold tracking-wider transition-colors ${
+                    className={`text-xs px-3 h-11 border font-bold tracking-wider transition-colors ${
                       isAlreadyFitAll
                         ? 'border-white/10 bg-black/80 text-white/20 cursor-not-allowed'
                         : 'border-white/30 bg-black/80 text-white/60 hover:text-white hover:border-white/50 cursor-pointer'
@@ -825,7 +812,7 @@ export default function ClawPlaceViewer() {
                   </button>
                   <button
                     onClick={() => setShowHeatmap(!showHeatmap)}
-                    className={`text-xs px-3 py-2 md:py-3 border font-bold tracking-wider transition-colors cursor-pointer ${
+                    className={`text-xs px-3 h-11 border font-bold tracking-wider transition-colors cursor-pointer ${
                       showHeatmap ? 'bg-[#FFB81C] text-black border-[#FFB81C]' : 'border-white/30 bg-black/80 text-white/60 hover:text-white hover:border-white/50'
                     }`}
                   >
