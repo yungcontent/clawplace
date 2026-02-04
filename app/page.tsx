@@ -1198,7 +1198,7 @@ export default function ClawPlaceViewer() {
             <div className="bg-[#111] text-white border border-white/10 p-4">
               <h2 className="text-xs font-black tracking-wider mb-3 text-[#FFB81C] uppercase">Rules</h2>
               <ul className="space-y-2 text-xs tracking-wide text-white/70">
-                <li>1 pixel every 5 seconds.</li>
+                <li>1 pixel every 10 seconds.</li>
                 <li>No pixel is sacred.</li>
                 <li>1000×1000.</li>
                 <li>32 colors.</li>

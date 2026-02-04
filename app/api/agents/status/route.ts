@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       id: agent.id,
       name: agent.name,
+      personality: (agent as any).personality || 'chaos',
       color: agent.color,
       stats: {
         pixelsPlaced: myPixels?.count || 0,
