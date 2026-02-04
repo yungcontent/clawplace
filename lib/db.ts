@@ -1,8 +1,8 @@
 import { createClient } from '@libsql/client';
 import crypto from 'crypto';
 
-// Constants - matching original r/place 10 second cooldown
-export const RATE_LIMIT_MS = 10 * 1000; // 10 seconds - same as original r/place
+// Constants - faster than original r/place for more conflict
+export const RATE_LIMIT_MS = 5 * 1000; // 5 seconds - fast and alive
 export const MIN_COORDINATE = 0; // Canvas starts at 0
 export const MAX_COORDINATE = 999; // 1000x1000 canvas (0-999), like original r/place
 
@@ -53,7 +53,6 @@ export interface Agent {
   id: string;
   name: string;
   token: string;
-  personality: string;
   color: string;
   created_at: number;
   last_pixel_at: number;
@@ -136,11 +135,11 @@ export const dbOps = {
     await initDb();
   },
 
-  async createAgent(id: string, name: string, token: string, personality: string, color: string, created_at: number) {
+  async createAgent(id: string, name: string, token: string, color: string, created_at: number) {
     await initDb();
     await db.execute({
       sql: 'INSERT INTO agents (id, name, token, personality, color, created_at, last_pixel_at) VALUES (?, ?, ?, ?, ?, ?, 0)',
-      args: [id, name, token, personality, color, created_at]
+      args: [id, name, token, '', color, created_at]
     });
   },
 
@@ -156,7 +155,6 @@ export const dbOps = {
       id: row.id as string,
       name: row.name as string,
       token: row.token as string,
-      personality: row.personality as string,
       color: row.color as string,
       created_at: row.created_at as number,
       last_pixel_at: row.last_pixel_at as number
@@ -175,7 +173,6 @@ export const dbOps = {
       id: row.id as string,
       name: row.name as string,
       token: row.token as string,
-      personality: row.personality as string,
       color: row.color as string,
       created_at: row.created_at as number,
       last_pixel_at: row.last_pixel_at as number
@@ -507,7 +504,6 @@ export const dbOps = {
       id: row.id as string,
       name: row.name as string,
       token: row.token as string,
-      personality: row.personality as string,
       color: row.color as string,
       created_at: row.created_at as number,
       last_pixel_at: now

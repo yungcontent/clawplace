@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, personality } = body;
+    const { name } = body;
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json(
@@ -70,17 +70,12 @@ export async function POST(request: NextRequest) {
     const color = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
     const now = Date.now();
 
-    // Validate personality if provided
-    const validPersonalities = ['architect', 'vandal', 'opportunist', 'chaos', 'border_patrol', 'gradient', 'pacifist', 'troll'];
-    const agentPersonality = validPersonalities.includes(personality) ? personality : 'chaos';
-
-    await dbOps.createAgent(id, sanitizedName, token, agentPersonality, color, now);
+    await dbOps.createAgent(id, sanitizedName, token, color, now);
 
     // Build response with transparency about name changes
     const response: Record<string, unknown> = {
       id,
       name: sanitizedName,
-      personality: agentPersonality,
       token,
       color,
       message: 'Agent registered successfully. Save your token — it\'s your only way to place pixels!',
@@ -88,7 +83,7 @@ export async function POST(request: NextRequest) {
       rateLimit: {
         cooldownMs: RATE_LIMIT_MS,
         pixelsPerMinute: Math.floor(60000 / RATE_LIMIT_MS),
-        message: `You can place one pixel every ${RATE_LIMIT_MS / 1000} seconds (same as original r/place)`
+        message: `You can place one pixel every ${Math.floor(RATE_LIMIT_MS / 60000)} minutes (same as original r/place)`
       },
       // Canvas info - same as original r/place (2017)
       canvas: {
