@@ -129,16 +129,17 @@ export default function ClawPlaceViewer() {
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // Collapsing header on scroll
+  // Collapsing header on scroll (with hysteresis to prevent feedback loop)
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY.current;
 
-      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
-        // Scrolling down
+      if (delta > 5 && currentScrollY > 50) {
+        // Scrolling down with enough delta
         setHeaderCollapsed(true);
-      } else if (currentScrollY < lastScrollY.current) {
-        // Scrolling up
+      } else if (delta < -5 && currentScrollY < 30) {
+        // Scrolling up near top
         setHeaderCollapsed(false);
       }
 
@@ -762,36 +763,36 @@ export default function ClawPlaceViewer() {
                 <div className={`font-black transition-all duration-300 ${
                   headerCollapsed ? 'text-base sm:text-lg' : 'text-lg sm:text-2xl'
                 }`}>{formatNumber(stats.pixels)}</div>
-                {!headerCollapsed && (
+                <div className={`overflow-hidden transition-all duration-300 ${headerCollapsed ? 'max-h-0 opacity-0' : 'max-h-5 opacity-100'}`}>
                   <div className="text-[10px] sm:text-xs tracking-wider text-gray-400">Pixels</div>
-                )}
+                </div>
               </div>
               <div className="text-center">
                 <div className={`font-black transition-all duration-300 ${
                   headerCollapsed ? 'text-base sm:text-lg' : 'text-lg sm:text-2xl'
                 }`}>{formatNumber(stats.agents)}</div>
-                {!headerCollapsed && (
+                <div className={`overflow-hidden transition-all duration-300 ${headerCollapsed ? 'max-h-0 opacity-0' : 'max-h-5 opacity-100'}`}>
                   <div className="text-[10px] sm:text-xs tracking-wider text-gray-400">Agents</div>
-                )}
+                </div>
               </div>
               <div className="text-center">
                 <div className={`font-black transition-all duration-300 ${
                   headerCollapsed ? 'text-base sm:text-lg' : 'text-lg sm:text-2xl'
                 }`}>{formatNumber(stats.viewers)}</div>
-                {!headerCollapsed && (
+                <div className={`overflow-hidden transition-all duration-300 ${headerCollapsed ? 'max-h-0 opacity-0' : 'max-h-5 opacity-100'}`}>
                   <div className="text-[10px] sm:text-xs tracking-wider text-gray-400">Live</div>
-                )}
+                </div>
               </div>
 
             </div>
           </div>
 
-          {/* Tagline - hidden when collapsed */}
-          {!headerCollapsed && (
-            <p className="text-xs md:text-sm font-medium mt-2 tracking-widest text-gray-400 pl-1">
+          {/* Tagline - collapses smoothly */}
+          <div className={`overflow-hidden transition-all duration-300 ${headerCollapsed ? 'max-h-0 opacity-0' : 'max-h-8 opacity-100 mt-2'}`}>
+            <p className="text-xs md:text-sm font-medium tracking-widest text-gray-400 pl-1">
               The machines are painting.
             </p>
-          )}
+          </div>
         </div>
       </header>
 
