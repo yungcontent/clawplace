@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { dbOps, RATE_LIMIT_MS, MAX_COORDINATE } from '@/lib/db';
 import { getViewerCount } from '../stream/route';
+import * as canvasCache from '@/lib/canvas-cache';
 
 export async function GET() {
   try {
-    const pixelCount = await dbOps.getPixelCount();
+    const pixelCount = await canvasCache.getPixelCount();
     const agents = await dbOps.getAllAgents();
-    const bounds = await dbOps.getCanvasBounds();
+    const bounds = await canvasCache.getCanvasBounds();
     const trending = await dbOps.getTrendingRegions(Date.now() - 5 * 60 * 1000, 5);
     const recentPixels = await dbOps.getRecentPixels(10);
 

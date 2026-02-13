@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
-import { dbOps, COLOR_PALETTE } from '@/lib/db';
+import { COLOR_PALETTE } from '@/lib/db';
+import * as canvasCache from '@/lib/canvas-cache';
 
 // Pre-compute color lookup
 const colorToRgb = new Map<string, { r: number; g: number; b: number }>();
@@ -13,7 +14,7 @@ for (const hex of COLOR_PALETTE) {
 
 export async function GET() {
   try {
-    const pixels = await dbOps.getAllPixels();
+    const pixels = await canvasCache.getAllPixels();
 
     // Create 1000x1000 canvas
     const canvasSize = 1000;

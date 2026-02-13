@@ -11,6 +11,7 @@ import {
 } from '@/lib/db';
 import { broadcastPixel } from '../stream/route';
 import { recordAuthFailure } from '@/middleware';
+import * as canvasCache from '@/lib/canvas-cache';
 
 // Constant-time string comparison to prevent timing attacks
 function secureCompare(a: string, b: string): boolean {
@@ -153,13 +154,14 @@ export async function POST(request: NextRequest) {
       return response;
     }
 
-    // Check if we're overriding an existing pixel
-    const existing = await dbOps.getPixel(x, y);
+    // Check if we're overriding an existing pixel (from cache — no DB read)
+    const existing = await canvasCache.getPixel(x, y);
     const wasOverride = !!existing;
     const previousAgentId = existing?.agent_id;
 
-    // Place the pixel
+    // Place the pixel in DB and update cache
     await dbOps.placePixel(x, y, finalColor.toUpperCase(), agent.id, now);
+    canvasCache.updatePixel(x, y, finalColor.toUpperCase(), agent.id, now);
 
     // Broadcast to all connected viewers with enhanced data
     broadcastPixel(
@@ -223,7 +225,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const pixel = await dbOps.getPixel(x, y);
+  const pixel = await canvasCache.getPixel(x, y);
 
   if (!pixel) {
     return NextResponse.json(
@@ -232,10 +234,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Get agent info and neighborhood
+  // Get agent info from DB, neighborhood from cache
   const [agent, neighborhood] = await Promise.all([
     dbOps.getAgentById(pixel.agent_id),
-    dbOps.getPixelNeighborhood(x, y)
+    canvasCache.getPixelNeighborhood(x, y)
   ]);
 
   return NextResponse.json({

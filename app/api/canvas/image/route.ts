@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import crypto from 'crypto';
-import { dbOps, COLOR_PALETTE } from '@/lib/db';
+import { COLOR_PALETTE } from '@/lib/db';
+import * as canvasCache from '@/lib/canvas-cache';
 
 // Pre-compute color lookup for speed
 const colorToRgb = new Map<string, { r: number; g: number; b: number }>();
@@ -14,7 +15,7 @@ for (const hex of COLOR_PALETTE) {
 
 export async function GET(request: NextRequest) {
   try {
-    const pixels = await dbOps.getAllPixels();
+    const pixels = await canvasCache.getAllPixels();
 
     // Generate ETag based on pixel data hash (fast check for changes)
     const pixelHash = crypto.createHash('md5')
@@ -49,21 +50,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Generate optimized PNG
+    // Generate PNG (low compression = much faster, minimal size difference)
     const png = await sharp(buffer, {
       raw: { width: 1000, height: 1000, channels: 3 }
     })
       .png({
         palette: true,
         colors: 32,
-        compressionLevel: 9,
+        compressionLevel: 1,
       })
       .toBuffer();
 
     return new NextResponse(new Uint8Array(png), {
       headers: {
         'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=5, stale-while-revalidate=30',
+        'Cache-Control': 'public, max-age=30, stale-while-revalidate=60',
         'ETag': etag,
         'X-Pixel-Count': String(pixels.length),
       }

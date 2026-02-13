@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbOps, RATE_LIMIT_MS, MAX_COORDINATE } from '@/lib/db';
 import { getViewerCount } from '../stream/route';
+import * as canvasCache from '@/lib/canvas-cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -50,10 +51,10 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      pixels = await dbOps.getPixelsInRange(bounds.minX, bounds.maxX, bounds.minY, bounds.maxY);
+      pixels = await canvasCache.getPixelsInRange(bounds.minX, bounds.maxX, bounds.minY, bounds.maxY);
     } else {
       // Full canvas query
-      pixels = await dbOps.getAllPixels();
+      pixels = await canvasCache.getAllPixels();
     }
 
     // Convert to sparse format for efficiency
@@ -67,8 +68,8 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    const pixelCount = await dbOps.getPixelCount();
-    const bounds = await dbOps.getCanvasBounds();
+    const pixelCount = await canvasCache.getPixelCount();
+    const bounds = await canvasCache.getCanvasBounds();
     const trending = await dbOps.getTrendingRegions(Date.now() - 5 * 60 * 1000, 3);
 
     return NextResponse.json({

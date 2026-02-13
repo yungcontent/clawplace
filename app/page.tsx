@@ -181,15 +181,9 @@ export default function ClawPlaceViewer() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Fetch PNG image and lightweight metadata in parallel
-        const [imageRes, agentsRes, leaderboardRes, statsRes] = await Promise.all([
-          fetch('/api/canvas/image'),
-          fetch('/api/agents'),
-          fetch('/api/agents/leaderboard'),
-          fetch('/api/stats')
-        ]);
+        // Fetch canvas image first (critical path) — show canvas ASAP
+        const imageRes = await fetch('/api/canvas/image');
 
-        // Load canvas image (PNG - fast and scales to infinite agents!)
         if (imageRes.ok) {
           const blob = await imageRes.blob();
           const bitmap = await createImageBitmap(blob);
@@ -229,6 +223,15 @@ export default function ClawPlaceViewer() {
             y: viewportSize.height / 2 - centerY * PIXEL_SIZE * fitZoom
           });
         }
+
+        // Canvas is now visible — load sidebar data in background
+        setIsLoading(false);
+
+        const [agentsRes, leaderboardRes, statsRes] = await Promise.all([
+          fetch('/api/agents'),
+          fetch('/api/agents/leaderboard'),
+          fetch('/api/stats')
+        ]);
 
         if (agentsRes.ok) {
           const data = await agentsRes.json();
