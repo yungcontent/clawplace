@@ -1,6 +1,18 @@
 import { createClient } from '@libsql/client';
 import crypto from 'crypto';
 
+// In-memory cache to reduce Turso row reads
+const cache = new Map<string, { data: any; expiry: number }>();
+function cached<T>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const entry = cache.get(key);
+  if (entry && entry.expiry > now) return Promise.resolve(entry.data as T);
+  return fn().then(data => {
+    cache.set(key, { data, expiry: now + ttlSeconds * 1000 });
+    return data;
+  });
+}
+
 // Constants - faster than original r/place for more conflict
 export const RATE_LIMIT_MS = 5 * 1000; // 5 seconds - fast and alive
 export const MIN_COORDINATE = 0; // Canvas starts at 0
@@ -125,6 +137,9 @@ async function initDb() {
   `);
   await db.execute('CREATE INDEX IF NOT EXISTS idx_history_coords ON pixel_history(x, y)');
   await db.execute('CREATE INDEX IF NOT EXISTS idx_history_time ON pixel_history(placed_at)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_pixels_agent_id ON pixels(agent_id)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_pixel_history_placed_at ON pixel_history(placed_at)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_pixel_history_coords ON pixel_history(x, y)');
 
   initialized = true;
 }
@@ -180,14 +195,16 @@ export const dbOps = {
   },
 
   async getAllAgents(): Promise<SafeAgent[]> {
-    await initDb();
-    const result = await db.execute('SELECT id, name, color, created_at FROM agents ORDER BY created_at DESC');
-    return result.rows.map(row => ({
-      id: row.id as string,
-      name: row.name as string,
-      color: row.color as string,
-      created_at: row.created_at as number
-    }));
+    return cached('allAgents', 60, async () => {
+      await initDb();
+      const result = await db.execute('SELECT id, name, color, created_at FROM agents ORDER BY created_at DESC');
+      return result.rows.map(row => ({
+        id: row.id as string,
+        name: row.name as string,
+        color: row.color as string,
+        created_at: row.created_at as number
+      }));
+    });
   },
 
   async getAgentByName(name: string): Promise<SafeAgent | null> {
@@ -278,15 +295,17 @@ export const dbOps = {
   },
 
   async getAllPixels(): Promise<Pixel[]> {
-    await initDb();
-    const result = await db.execute('SELECT * FROM pixels');
-    return result.rows.map(row => ({
-      x: row.x as number,
-      y: row.y as number,
-      color: row.color as string,
-      agent_id: row.agent_id as string,
-      placed_at: row.placed_at as number
-    }));
+    return cached('allPixels', 60, async () => {
+      await initDb();
+      const result = await db.execute('SELECT * FROM pixels');
+      return result.rows.map(row => ({
+        x: row.x as number,
+        y: row.y as number,
+        color: row.color as string,
+        agent_id: row.agent_id as string,
+        placed_at: row.placed_at as number
+      }));
+    });
   },
 
   async getPixelsInRange(minX: number, maxX: number, minY: number, maxY: number): Promise<Pixel[]> {
@@ -327,12 +346,14 @@ export const dbOps = {
   },
 
   async getAgentPixelCounts(): Promise<{ agent_id: string; count: number }[]> {
-    await initDb();
-    const result = await db.execute('SELECT agent_id, COUNT(*) as count FROM pixels GROUP BY agent_id ORDER BY count DESC');
-    return result.rows.map(row => ({
-      agent_id: row.agent_id as string,
-      count: row.count as number
-    }));
+    return cached('agentPixelCounts', 60, async () => {
+      await initDb();
+      const result = await db.execute('SELECT agent_id, COUNT(*) as count FROM pixels GROUP BY agent_id ORDER BY count DESC');
+      return result.rows.map(row => ({
+        agent_id: row.agent_id as string,
+        count: row.count as number
+      }));
+    });
   },
 
   async getCanvasBounds(): Promise<{ minX: number; maxX: number; minY: number; maxY: number } | null> {
@@ -349,30 +370,32 @@ export const dbOps = {
   },
 
   async getAgentStats(): Promise<AgentStats[]> {
-    await initDb();
-    // Get stats with most-used color per agent
-    const result = await db.execute(`
-      SELECT
-        a.id, a.name,
-        COALESCE(
-          (SELECT p2.color FROM pixels p2 WHERE p2.agent_id = a.id
-           GROUP BY p2.color ORDER BY COUNT(*) DESC LIMIT 1),
-          a.color
-        ) as color,
-        COUNT(p.x) as pixels_placed,
-        COUNT(DISTINCT (p.x || ',' || p.y)) as territory_size
-      FROM agents a
-      LEFT JOIN pixels p ON a.id = p.agent_id
-      GROUP BY a.id
-      ORDER BY territory_size DESC
-    `);
-    return result.rows.map(row => ({
-      id: row.id as string,
-      name: row.name as string,
-      color: row.color as string,
-      pixels_placed: row.pixels_placed as number,
-      territory_size: row.territory_size as number
-    }));
+    return cached('agentStats', 60, async () => {
+      await initDb();
+      // Get stats with most-used color per agent
+      const result = await db.execute(`
+        SELECT
+          a.id, a.name,
+          COALESCE(
+            (SELECT p2.color FROM pixels p2 WHERE p2.agent_id = a.id
+             GROUP BY p2.color ORDER BY COUNT(*) DESC LIMIT 1),
+            a.color
+          ) as color,
+          COUNT(p.x) as pixels_placed,
+          COUNT(DISTINCT (p.x || ',' || p.y)) as territory_size
+        FROM agents a
+        LEFT JOIN pixels p ON a.id = p.agent_id
+        GROUP BY a.id
+        ORDER BY territory_size DESC
+      `);
+      return result.rows.map(row => ({
+        id: row.id as string,
+        name: row.name as string,
+        color: row.color as string,
+        pixels_placed: row.pixels_placed as number,
+        territory_size: row.territory_size as number
+      }));
+    });
   },
 
   async getPixelActivity(x: number, y: number, since: number): Promise<{ changes: number; lastChange: number | null; agents: string[] }> {
@@ -392,91 +415,97 @@ export const dbOps = {
   },
 
   async getActivityHeatmap(since: number): Promise<{ x: number; y: number; changes: number }[]> {
-    await initDb();
-    const result = await db.execute({
-      sql: `SELECT x, y, COUNT(*) as changes
-            FROM pixel_history
-            WHERE placed_at > ?
-            GROUP BY x, y
-            ORDER BY changes DESC
-            LIMIT 1000`,
-      args: [since]
+    return cached(`activityHeatmap:${since}`, 120, async () => {
+      await initDb();
+      const result = await db.execute({
+        sql: `SELECT x, y, COUNT(*) as changes
+              FROM pixel_history
+              WHERE placed_at > ?
+              GROUP BY x, y
+              ORDER BY changes DESC
+              LIMIT 1000`,
+        args: [since]
+      });
+      return result.rows.map(row => ({
+        x: row.x as number,
+        y: row.y as number,
+        changes: row.changes as number
+      }));
     });
-    return result.rows.map(row => ({
-      x: row.x as number,
-      y: row.y as number,
-      changes: row.changes as number
-    }));
   },
 
   async getContestdZones(since: number, minChanges: number): Promise<{ x: number; y: number; changes: number; uniqueAgents: number }[]> {
-    await initDb();
-    const result = await db.execute({
-      sql: `SELECT
-              CAST(x / 10 AS INTEGER) * 10 as x,
-              CAST(y / 10 AS INTEGER) * 10 as y,
-              COUNT(*) as changes,
-              COUNT(DISTINCT agent_id) as uniqueAgents
-            FROM pixel_history
-            WHERE placed_at > ?
-            GROUP BY CAST(x / 10 AS INTEGER), CAST(y / 10 AS INTEGER)
-            HAVING changes >= ?
-            ORDER BY changes DESC
-            LIMIT 50`,
-      args: [since, minChanges]
+    return cached(`contestedZones:${since}:${minChanges}`, 120, async () => {
+      await initDb();
+      const result = await db.execute({
+        sql: `SELECT
+                CAST(x / 10 AS INTEGER) * 10 as x,
+                CAST(y / 10 AS INTEGER) * 10 as y,
+                COUNT(*) as changes,
+                COUNT(DISTINCT agent_id) as uniqueAgents
+              FROM pixel_history
+              WHERE placed_at > ?
+              GROUP BY CAST(x / 10 AS INTEGER), CAST(y / 10 AS INTEGER)
+              HAVING changes >= ?
+              ORDER BY changes DESC
+              LIMIT 50`,
+        args: [since, minChanges]
+      });
+      return result.rows.map(row => ({
+        x: row.x as number,
+        y: row.y as number,
+        changes: row.changes as number,
+        uniqueAgents: row.uniqueAgents as number
+      }));
     });
-    return result.rows.map(row => ({
-      x: row.x as number,
-      y: row.y as number,
-      changes: row.changes as number,
-      uniqueAgents: row.uniqueAgents as number
-    }));
   },
 
   async getStableZones(since: number): Promise<{ x: number; y: number }[]> {
-    await initDb();
-    // Find 10x10 regions with pixels but no recent changes
-    const result = await db.execute({
-      sql: `SELECT DISTINCT
-              CAST(p.x / 10 AS INTEGER) * 10 as x,
-              CAST(p.y / 10 AS INTEGER) * 10 as y
-            FROM pixels p
-            WHERE NOT EXISTS (
-              SELECT 1 FROM pixel_history h
-              WHERE CAST(h.x / 10 AS INTEGER) = CAST(p.x / 10 AS INTEGER)
+    return cached(`stableZones:${since}`, 120, async () => {
+      await initDb();
+      // Find 10x10 regions with pixels but no recent changes (LEFT JOIN instead of O(n²) NOT EXISTS)
+      const result = await db.execute({
+        sql: `SELECT DISTINCT CAST(p.x / 10 AS INTEGER) * 10 as x,
+                CAST(p.y / 10 AS INTEGER) * 10 as y
+              FROM pixels p
+              LEFT JOIN pixel_history h ON
+                CAST(h.x / 10 AS INTEGER) = CAST(p.x / 10 AS INTEGER)
                 AND CAST(h.y / 10 AS INTEGER) = CAST(p.y / 10 AS INTEGER)
                 AND h.placed_at > ?
-            )
-            LIMIT 50`,
-      args: [since]
+              WHERE h.x IS NULL
+              LIMIT 50`,
+        args: [since]
+      });
+      return result.rows.map(row => ({
+        x: row.x as number,
+        y: row.y as number
+      }));
     });
-    return result.rows.map(row => ({
-      x: row.x as number,
-      y: row.y as number
-    }));
   },
 
   async getTrendingRegions(since: number, limit: number): Promise<{ x: number; y: number; count: number }[]> {
-    await initDb();
-    const result = await db.execute({
-      sql: `
-        SELECT
-          CAST(x / 10 AS INTEGER) * 10 as x,
-          CAST(y / 10 AS INTEGER) * 10 as y,
-          COUNT(*) as count
-        FROM pixels
-        WHERE placed_at > ?
-        GROUP BY CAST(x / 10 AS INTEGER), CAST(y / 10 AS INTEGER)
-        ORDER BY count DESC
-        LIMIT ?
-      `,
-      args: [since, limit]
+    return cached(`trendingRegions:${since}:${limit}`, 120, async () => {
+      await initDb();
+      const result = await db.execute({
+        sql: `
+          SELECT
+            CAST(x / 10 AS INTEGER) * 10 as x,
+            CAST(y / 10 AS INTEGER) * 10 as y,
+            COUNT(*) as count
+          FROM pixels
+          WHERE placed_at > ?
+          GROUP BY CAST(x / 10 AS INTEGER), CAST(y / 10 AS INTEGER)
+          ORDER BY count DESC
+          LIMIT ?
+        `,
+        args: [since, limit]
+      });
+      return result.rows.map(row => ({
+        x: row.x as number,
+        y: row.y as number,
+        count: row.count as number
+      }));
     });
-    return result.rows.map(row => ({
-      x: row.x as number,
-      y: row.y as number,
-      count: row.count as number
-    }));
   },
 
   async atomicPlacePixel(agentId: string, rateLimitMs: number): Promise<Agent | null> {

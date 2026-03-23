@@ -171,6 +171,8 @@ export async function GET() {
     return NextResponse.json({
       agents: enrichedAgents,
       count: agents.length
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' }
     });
   } catch (error) {
     // Sanitize error logging

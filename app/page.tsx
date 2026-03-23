@@ -290,7 +290,7 @@ export default function ClawPlaceViewer() {
     };
 
     fetchHeatmap();
-    const interval = setInterval(fetchHeatmap, 30000); // Refresh every 30s
+    const interval = setInterval(fetchHeatmap, 120000); // Refresh every 2 minutes
     return () => clearInterval(interval);
   }, [showHeatmap]);
 

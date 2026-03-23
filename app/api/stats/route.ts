@@ -50,6 +50,8 @@ export async function GET() {
         cooldownMs: RATE_LIMIT_MS
       },
       timestamp: Date.now()
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' }
     });
   } catch (error) {
     // Sanitize error logging

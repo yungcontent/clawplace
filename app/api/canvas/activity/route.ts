@@ -45,6 +45,8 @@ export async function GET(request: NextRequest) {
       heatmap,    // Per-pixel change counts
       window: { minutes, since },
       timestamp: Date.now()
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60' }
     });
   } catch (error) {
     console.error('Activity fetch error:', error instanceof Error ? error.message : 'Unknown error');

@@ -94,6 +94,8 @@ export async function GET(request: NextRequest) {
         pixelsPerMinute: Math.floor(60000 / RATE_LIMIT_MS),
         pixelsPerHour: Math.floor(3600000 / RATE_LIMIT_MS)
       }
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' }
     });
   } catch (error) {
     // Sanitize error logging
