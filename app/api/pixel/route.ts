@@ -240,7 +240,7 @@ export async function GET(request: NextRequest) {
     canvasCache.getPixelNeighborhood(x, y)
   ]);
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     x: pixel.x,
     y: pixel.y,
     color: pixel.color,
@@ -252,4 +252,7 @@ export async function GET(request: NextRequest) {
     } : null,
     neighborhood // Colors and agents surrounding this pixel
   });
+
+  response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30');
+  return response;
 }
